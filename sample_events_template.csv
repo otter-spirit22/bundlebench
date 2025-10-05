@@ -1,0 +1,9 @@
+household_id,event_type,minutes_spent,channel,remarket_quote_count_optional,won_quote_optional,claim_cat_optional,loss_paid_optional
+HH1001,service_touch,15,email,,,,
+HH1001,remarket,45,phone,3,1,,
+HH1002,claim_update,30,portal,,,"water","500"
+HH1002,service_touch,20,in-person,,,,
+HH1003,remarket,60,text,2,0,,
+HH1001,renewal,5,email,,,,
+HH1003,claim_update,40,phone,,"collision","1200"
+HH1002,x_sell,10,portal,,,,
