@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bundle Bench — Full Insight Engine</title>
+  <style>
+    :root {
+      --bg: #0b1024;
+      --panel: #0e1630;
+      --card: #111c3a;
+      --line: rgba(255,255,255,0.18);
+      --text: #f3f4f6;
+      --muted: #b7c3d6;
+      --accent: #7c83ff;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0a1333, #0b1024 42%, #0a0f22);
+      color: var(--text);
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    h1, h2 { margin: 0 0 12px 0; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .dials { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 16px; }
+    .dial {
+      background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,white, .02));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .label { font-size: 12px; color: #dfe6f6; }
+    .value { font-size: 22px; font-weight: 700; margin-top: 6px; }
+    .badge {
+      margin-top: 4px;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+    }
+    .badge.assumed { border-color: #6b7a99; }
+    .badge.estimated { border-color: #f6b44b; background: rgba(246,180,75,.12); color: #ffe3ab; }
+    .badge.measured { border-color: #19c093; background: rgba(25,192,147,.12); color: #bdfbe8; }
+    .upload-controls input { margin-top: 8px; width: 100%; }
+    .error { color: #f76c6c; margin-top: 8px; }
+    .insights, .top10, .meeting-summary { margin-top: 24px; }
+    .top10 table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .top10 th, .top10 td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+    }
+    .insights ul {
+      list-style-type: disc;
+      margin-left: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Bundle Bench — Full Insight Engine</h1>
+
+    <div class="card">
+      <h2>Upload Your Data</h2>
+      <div class="upload-controls">
+        <label for="household-file">Household Snapshot CSV:</label>
+        <input type="file" id="household-file" accept=".csv" />
+        <br>
+        <label for="event-file">Event Log CSV (optional):</label>
+        <input type="file" id="event-file" accept=".csv" />
+        <div class="error" id="error-msg"></div>
+      </div>
+    </div>
+
+    <div id="snapshot-output" class="card" style="display:none;">
+      <h2>Health Snapshot</h2>
+      <div class="dials">
+        <div class="dial">
+          <div class="label">Time‑Back Number™</div>
+          <div class="value" id="val-tbn">—</div>
+          <div class="badge assumed" id="conf-tbn">Assumed</div>
+        </div>
+        <div class="dial">
+          <div class="label">BenchScore™</div>
+          <div class="value" id="val-bscore">—</div>
+          <div class="badge assumed" id="conf-bscore">Assumed</div>
+        </div>
+        <div class="dial">
+          <div class="label">Remarketing Load</div>
+          <div class="value" id="val-rl">—</div>
+          <div class="badge assumed" id="conf-rl">Assumed</div>
+        </div>
+        <div class="dial">
+          <div class="label">Service Touch Index</div>
+          <div class="value" id="val-sti">—</div>
+          <div class="badge assumed" id="conf-sti">Assumed</div>
+        </div>
+        <div class="dial">
+          <div class="label">Coverage Depth (%)</div>
+          <div class="value" id="val-depth">—</div>
+          <div class="badge assumed" id="conf-depth">Assumed</div>
+        </div>
+        <div class="dial">
+          <div class="label">Tenure Momentum</div>
+          <div class="value" id="val-tenure">—</div>
+          <div class="badge assumed" id="conf-tenure">Assumed</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="meeting-summary" class="card meeting-summary" style="display:none;">
+      <h2>Meeting Summary</h2>
+      <div id="summary-text"></div>
+    </div>
+
+    <div id="insights-section" class="card insights" style="display:none;">
+      <h2>Insights & Talking Angles</h2>
+      <ul id="insights-list"></ul>
+    </div>
+
+    <div id="top10-section" class="card top10" style="display:none;">
+      <h2>Top 10 Outreach Plan</h2>
+      <table>
+        <thead>
+          <tr><th>Household ID</th><th>Opportunity Reason</th><th>Talking Angle</th></tr>
+        </thead>
+        <tbody id="top10-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    // === CSV Parsing (quoted support) ===
+    function parseCSV(text) {
+      const lines = text.split(/\\r?\\n/).filter(l => l.trim().length);
+      if (lines.length === 0) return [];
+      const headerParts = lines[0].match(/(".*?"|[^",\\s]+)(?=,|$)/g) || [];
+      const headers = headerParts.map(h => h.replace(/^"|"$/g, ""));
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].match(/(".*?"|[^",\\s]+)(?=,|$)/g) || [];
+        const obj = {};
+        headers.forEach((h, idx) => {
+          let v = parts[idx] || "";
+          v = v.replace(/^"|"$/g, "");
+          obj[h.trim()] = v.trim();
+        });
+        rows.push(obj);
+      }
+      return rows;
+    }
+
+    // === Input Mapping ===
+    function parseHouseholdRow(r) {
+      return {
+        household_id: r.household_id || null,
+        segment_tier: r.segment_tier || "",
+        persona_tag: r.persona_tag || "",
+        office_location: r.office_location || "",
+        tenure_years: parseFloat(r.tenure_years) || 0,
+        policy_count: parseInt(r.policy_count) || 0,
+        lines_count: parseInt(r.lines_count) || 0,
+        bundled_flag: (r.bundled_flag === "1" || r.bundled_flag === "true"),
+        umbrella_flag: (r.umbrella_flag === "1" || r.umbrella_flag === "true"),
+        primary_carrier: r.primary_carrier || "",
+        secondary_carrier_optional: r.secondary_carrier_optional || "",
+        written_premium_total: parseFloat(r.written_premium_total) || 0,
+        earned_premium_ytd: parseFloat(r.earned_premium_ytd) || 0,
+        commission_rate_pct: parseFloat(r.commission_rate_pct) || 0,
+        renewal_date: r.renewal_date ? new Date(r.renewal_date) : null,
+        escrow_flag: (r.escrow_flag === "1" || r.escrow_flag === "true"),
+        auto_pay_flag: (r.auto_pay_flag === "1" || r.auto_pay_flag === "true"),
+        auto_premium: parseFloat(r.auto_premium) || 0,
+        auto_year: parseInt(r.auto_year) || 0,
+        auto_safe_driver_flag: (r.auto_safe_driver_flag === "1" || r.auto_safe_driver_flag === "true"),
+        home_premium: parseFloat(r.home_premium) || 0,
+        home_year_built: parseInt(r.home_year_built) || 0,
+        home_roof_age_years: parseInt(r.home_roof_age_years) || 0,
+        water_backup_limit: parseFloat(r.water_backup_limit) || 0,
+        service_line_coverage_limit: parseFloat(r.service_line_coverage_limit) || 0,
+        equipment_breakdown_flag: (r.equipment_breakdown_flag === "1" || r.equipment_breakdown_flag === "true"),
+        roof_surfacing_loss_settlement: r.roof_surfacing_loss_settlement || "",
+        refrigerated_products_flag: (r.refrigerated_products_flag === "1" || r.refrigerated_products_flag === "true"),
+        key_fob_replacement_flag: (r.key_fob_replacement_flag === "1" || r.key_fob_replacement_flag === "true"),
+        pet_injury_flag: (r.pet_injury_flag === "1" || r.pet_injury_flag === "true"),
+        seepage_leakage_coverage_flag: (r.seepage_leakage_coverage_flag === "1" || r.seepage_leakage_coverage_flag === "true"),
+        bundle_discount_flag: (r.bundle_discount_flag === "1" || r.bundle_discount_flag === "true"),
+        eft: (r.eft === "1" || r.eft === "true"),
+        pay_in_full: (r.pay_in_full === "1" || r.pay_in_full === "true"),
+        paperless: (r.paperless === "1" || r.paperless === "true"),
+        multicar: (r.multicar === "1" || r.multicar === "true"),
+        safe_driver: (r.safe_driver === "1" || r.safe_driver === "true"),
+        alarm: (r.alarm === "1" || r.alarm === "true"),
+        service_touches_12m: parseInt(r.service_touches_12m) || 0,
+        avg_minutes_per_touch: parseFloat(r.avg_minutes_per_touch) || 0,
+        remarkets_12m: parseInt(r.remarkets_12m) || 0,
+        est_minutes_per_remarket: parseFloat(r.est_minutes_per_remarket) || 0,
+        claims_open_count: parseInt(r.claims_open_count) || 0,
+        claims_closed_12m: parseInt(r.claims_closed_12m) || 0,
+        retained_last_term_flag: (r.retained_last_term_flag === "1" || r.retained_last_term_flag === "true"),
+        churn_risk_score_0_1: parseFloat(r.churn_risk_score_0_1) || 0,
+        data_confidence: r.data_confidence || "",
+        last_reviewed_date: r.last_reviewed_date ? new Date(r.last_reviewed_date) : null
+      };
+    }
+
+    function parseEventRow(r) {
+      return {
+        household_id: r.household_id || null,
+        event_type: r.event_type || "",
+        minutes_spent: parseFloat(r.minutes_spent) || 0,
+        channel: r.channel || "",
+        remarket_quote_count_optional: r.remarket_quote_count_optional ? parseInt(r.remarket_quote_count_optional) : 0,
+        won_quote_optional: (r.won_quote_optional === "1" || r.won_quote_optional === "true"),
+        claim_cat_optional: r.claim_cat_optional || "",
+        loss_paid_optional: parseFloat(r.loss_paid_optional) || 0
+      };
+    }
+
+    function mapHouseholds(csv) {
+      return parseCSV(csv).map(parseHouseholdRow);
+    }
+    function mapEvents(csv) {
+      return parseCSV(csv).map(parseEventRow);
+    }
+
+    // === Metric computations ===
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function computeExperienceQuality(hh) {
+      if (!hh.length) return 1;
+      const sum = hh.reduce((acc, h) => {
+        const tot = h.claims_open_count + h.claims_closed_12m;
+        const ratio = tot > 0 ? (h.claims_closed_12m / tot) : 1;
+        return acc + ratio;
+      }, 0);
+      return sum / hh.length;
+    }
+
+    function computeRetentionStrength(hh) {
+      if (!hh.length) return 0;
+      const count = hh.filter(h => h.retained_last_term_flag).length;
+      return count / hh.length;
+    }
+
+    function computeBenchScore({ br, rl, sti, tenure, expQuality, retention }) {
+      const wBR = clamp(br, 0, 1);
+      const wRL = clamp(1 - rl / 100, 0, 1);
+      const wSTI = clamp(1 - sti / 100, 0, 1);
+      const wTEN = clamp(tenure / 10, 0, 1);
+      const wEXP = clamp(expQuality, 0, 1);
+      const wRET = clamp(retention, 0, 1);
+
+      return Math.round((wBR * 0.20 + wRL * 0.15 + wSTI * 0.15 + wTEN * 0.15 + wEXP * 0.20 + wRET * 0.15) * 100);
+    }
+
+    function computeCoverageDepth(hh) {
+      if (!hh.length) return 0;
+      const cnt = hh.filter(h => h.lines_count >= 2 || h.bundled_flag || h.umbrella_flag).length;
+      return cnt / hh.length;
+    }
+
+    function computeRemarketingLoad(hh, ev) {
+      if (!hh.length) return 0;
+      const rem = ev.filter(e => e.event_type === "remarket").length;
+      return (rem / hh.length) * 100;
+    }
+
+    function computeServiceTouchIndex(ev, hh) {
+      if (!hh.length) return 0;
+      const serv = ev.filter(e => e.event_type === "service_touch");
+      const totalMin = serv.reduce((s, e) => s + e.minutes_spent, 0);
+      return totalMin / hh.length;
+    }
+
+    function computeTimeBack(hh, ev) {
+      if (!hh.length) return 0;
+      const baseUn = 120, baseBund = 80;
+      const delta = baseUn - baseBund;
+      const rem = ev.filter(e => e.event_type === "remarket").length;
+      const totalMin = delta * rem;
+      const hrsYear = totalMin / 60;
+      return hrsYear / 12;
+    }
+
+    function computeTenureMomentum(hh, prev) {
+      if (!hh.length || !prev || !prev.length) return 0;
+      const avgCur = hh.reduce((s, h) => s + h.tenure_years, 0) / hh.length;
+      const avgPrev = prev.reduce((s, h) => s + h.tenure_years, 0) / prev.length;
+      return avgCur - avgPrev;
+    }
+
+    function badgeFor(hhList, field) {
+      if (hhList.some(h => h.data_confidence && h.last_reviewed_date)) {
+        return "measured";
+      }
+      if (hhList.some(h => {
+        if (field === "service_touches") return h.service_touches_12m > 0;
+        if (field === "remarkets") return h.remarkets_12m > 0;
+        if (field === "bundled") return h.bundled_flag;
+        return false;
+      })) {
+        return "estimated";
+      }
+      return "assumed";
+    }
+
+    // === Insight templates ≥ 20 angles ===
+    const insightTemplates = [
+      "Households with split carriers show higher remarketing load — consider bundling to reduce friction.",
+      "Clients without umbrella but with ≥2 lines present cross‑sell opportunity for liability extension.",
+      "High service touches beyond norms indicate operational drag — push for automation or self‑service.",
+      "Remarketing events cluster in newer tenures — focus retention earlier in lifecycle.",
+      "Closed vs open claims ratio signals experience quality—high closed ratio is favorable.",
+      "Low bundling rate for a segment signals pricing or communication disconnect.",
+      "Clients with EFT or auto‑pay tend to retain longer — educate on payment automation.",
+      "Elevated churn risk aligns with repeated remarkets — proactive outreach can reduce loss.",
+      "High endorsements (water backup, key fob, etc.) often correlate with deeper coverage needs.",
+      "Clients bypassing discounts (paperless, multicar) could be educated for cost benefit.",
+      "High premium but low line households may be underinsured — outreach to add lines.",
+      "Missing coverage limits (service line, water backup) leaves gaps — propose upgrades.",
+      "Old roofs or high roof age may justify coverage reviews or inspections.",
+      "Households with many open claims may benefit from enhanced service messaging.",
+      "Declining tenure momentum in cohorts indicates retention issues worth segmenting.",
+      "Uneven earned vs written premium suggests policy timing or cancellation issues.",
+      "Escrow customers may feel detached — engage earlier around renewal time.",
+      "Mismatch between high remarkets and low service touches suggests inefficiency.",
+      "Clients with high commission rates may be receptive to cross‑sell if margin holds.",
+      "BenchScore variance across tiers suggests internal process/training opportunity.",
+      "Frequent renewals despite high RL might respond to alternative renewal terms.",
+      "Clients lacking home or auto coverage offer expansion potential in multi‑line selling.",
+      "Low data confidence flags records needing data review or cleaning."
+    ];
+
+    function generateMeetingSummary(metrics) {
+      return [
+        `BenchScore™: ${metrics.benchscore}`,
+        `Time‑Back Number: ~${metrics.timeBack.toFixed(2)} hrs/month`,
+        `Remarketing Load: ${metrics.remarketingLoad.toFixed(2)} per 100`,
+        `Service Touch Index: ${metrics.sti.toFixed(2)} mins/HH`,
+        `Coverage Depth: ${(metrics.depth * 100).toFixed(1)}%`,
+        `Tenure Momentum: ${metrics.tenureMomentum.toFixed(2)} yrs vs prior`
+      ].join("<br>");
+    }
+
+    function buildTop10List(hhList, evList) {
+      const scored = hhList.map(h => {
+        let score = 0;
+        score += (h.remarkets_12m || 0) * 2;
+        if (h.lines_count < 2 && h.written_premium_total > 1000) score += 5;
+        if (!h.umbrella_flag) score += 3;
+        score += (h.service_touches_12m || 0);
+        return { h, score };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      const top = scored.slice(0, 10);
+      return top.map(o => {
+        const h = o.h;
+        let reason = "";
+        if ((h.remarkets_12m || 0) > 1) reason = "High remarkets";
+        else if (h.lines_count < 2) reason = "Underinsured / cross-sell potential";
+        else reason = "Operational drag / coverage gap";
+        const talk = insightTemplates[Math.floor(Math.random() * insightTemplates.length)];
+        return {
+          id: h.household_id,
+          reason,
+          talking: talk
+        };
+      });
+    }
+
+    function updateDial(valId, confId, value, badge) {
+      const vEl = document.getElementById(valId);
+      const cEl = document.getElementById(confId);
+      if (vEl) vEl.textContent = (typeof value === "number") ? value.toFixed(2) : value;
+      if (cEl) {
+        cEl.textContent = badge.charAt(0).toUpperCase() + badge.slice(1);
+        cEl.className = "badge " + badge;
+      }
+    }
+
+    function renderSnapshot(metrics, hhList) {
+      document.getElementById("snapshot-output").style.display = "block";
+      updateDial("val-tbn", "conf-tbn", metrics.timeBack, metrics.timebackBadge);
+      updateDial("val-bscore", "conf-bscore", metrics.benchscore, metrics.benchBadge);
+      updateDial("val-rl", "conf-rl", metrics.remarketingLoad, metrics.remBadge);
+      updateDial("val-sti", "conf-sti", metrics.sti, metrics.stiBadge);
+      updateDial("val-depth", "conf-depth", metrics.depth * 100, metrics.depthBadge);
+      updateDial("val-tenure", "conf-tenure", metrics.tenureMomentum, metrics.tenureBadge);
+    }
+
+    function renderMeetingSummary(metrics) {
+      document.getElementById("meeting-summary").style.display = "block";
+      document.getElementById("summary-text").innerHTML = generateMeetingSummary(metrics);
+    }
+
+    function renderInsights(metrics, hhList) {
+      document.getElementById("insights-section").style.display = "block";
+      const ul = document.getElementById("insights-list");
+      ul.innerHTML = "";
+      insightTemplates.forEach(t => {
+        const li = document.createElement("li");
+        li.textContent = t;
+        ul.appendChild(li);
+      });
+    }
+
+    function renderTop10(hhList, evList) {
+      document.getElementById("top10-section").style.display = "block";
+      const tbody = document.getElementById("top10-body");
+      tbody.innerHTML = "";
+      const top = buildTop10List(hhList, evList);
+      top.forEach(row => {
+        const tr = document.createElement("tr");
+        const td1 = document.createElement("td"); td1.textContent = row.id;
+        const td2 = document.createElement("td"); td2.textContent = row.reason;
+        const td3 = document.createElement("td"); td3.textContent = row.talking;
+        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+        tbody.appendChild(tr);
+      });
+    }
+
+    let households = [];
+    let events = [];
+    let prevHouseholds = null;
+
+    function handleHouseholdFile(file) {
+      const fr = new FileReader();
+      fr.onload = e => {
+        prevHouseholds = households.slice();
+        households = mapHouseholds(e.target.result);
+        onDataReady();
+      };
+      fr.readAsText(file);
+    }
+    function handleEventFile(file) {
+      const fr = new FileReader();
+      fr.onload = e => {
+        events = mapEvents(e.target.result);
+        onDataReady();
+      };
+      fr.readAsText(file);
+    }
+
+    function onDataReady() {
+      const err = document.getElementById("error-msg");
+      if (!households.length) {
+        err.textContent = "Please upload a valid household CSV first.";
+        return;
+      }
+      err.textContent = "";
+      const metrics = computeAllMetrics();
+      renderSnapshot(metrics, households);
+      renderMeetingSummary(metrics);
+      renderInsights(metrics, households);
+      renderTop10(households, events);
+    }
+
+    function computeAllMetrics() {
+      const depth = computeCoverageDepth(households);
+      const rlLoad = computeRemarketingLoad(households, events);
+      const sti = computeServiceTouchIndex(events, households);
+      const tbn = computeTimeBack(households, events);
+      const expQ = computeExperienceQuality(households);
+      const retention = computeRetentionStrength(households);
+      const avgTen = households.length
+        ? households.reduce((s, h) => s + h.tenure_years, 0) / households.length
+        : 0;
+
+      const bscore = computeBenchScore({
+        br: households.filter(h => h.bundled_flag).length / (households.length || 1),
+        rl: rlLoad,
+        sti: sti,
+        tenure: avgTen,
+        expQuality: expQ,
+        retention: retention
+      });
+
+      const tm = computeTenureMomentum(households, prevHouseholds);
+
+      return {
+        timeBack: tbn,
+        benchscore: bscore,
+        remarketingLoad: rlLoad,
+        sti: sti,
+        depth: depth,
+        tenureMomentum: tm,
+        timebackBadge: badgeFor(households, "remarkets"),
+        benchBadge: badgeFor(households, "bundled"),
+        remBadge: badgeFor(households, "remarkets"),
+        stiBadge: badgeFor(households, "service_touches"),
+        depthBadge: badgeFor(households, "bundled"),
+        tenureBadge: tm >= 0 ? "growing" : "declining"
+      };
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const hh = document.getElementById("household-file");
+      const ev = document.getElementById("event-file");
+      if (hh) hh.addEventListener("change", e => {
+        if (e.target.files[0]) handleHouseholdFile(e.target.files[0]);
+      });
+      if (ev) ev.addEventListener("change", e => {
+        if (e.target.files[0]) handleEventFile(e.target.files[0]);
+      });
+    });
+  </script>
+</body>
+</html>
