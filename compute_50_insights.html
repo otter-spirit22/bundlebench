@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Compute 50 BundleBench Insights</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    body { background: #111827; color: #e5e7eb; font-family: Inter, Arial, sans-serif; padding: 2em;}
+    .insight-table { width: 100%; border-collapse: collapse; margin-top: 2em; }
+    .insight-table th, .insight-table td { border: 1px solid #333; padding: 8px; font-size: 0.98em; }
+    .insight-table th { background: #1a2236; }
+    .urgent { background: #ef4444; color: #fff; font-weight: bold; }
+    .opportunity { background: #6366f1; color: #fff; font-weight: bold; }
+    .badge { border-radius: 10px; padding: 2px 8px; font-weight: 600; margin-right: 4px; }
+    .good { background: #10b981; color: #fff; }
+    .warn { background: #f59e0b; color: #fff; }
+    .elite { background: #6366f1; color: #fff; }
+    input[type="file"] { margin-top: 1em; }
+    .summary { margin-bottom: 1em; font-size: 1.1em; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>BundleBench: Compute 50 Insights from CSV</h1>
+  <div>
+    <input type="file" id="csvFile" accept=".csv">
+  </div>
+  <div id="summary" class="summary hidden"></div>
+  <table class="insight-table hidden" id="insightsTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Title</th>
+        <th>Count / Value</th>
+        <th>Badge</th>
+        <th>Definition</th>
+      </tr>
+    </thead>
+    <tbody id="insightsBody"></tbody>
+  </table>
+  <script>
+    function pct(n, d) { return d ? Math.round(100 * n / d) : 0; }
+    function percentile(arr, p) {
+      arr = arr.filter(x => x !== null && x !== undefined && !isNaN(x));
+      if (!arr.length) return 0;
+      arr.sort((a, b) => a - b);
+      var idx = Math.floor((p / 100) * arr.length);
+      return arr[idx];
+    }
+    function daysUntil(dateStr) {
+      if (!dateStr) return 9999;
+      let d = new Date(dateStr);
+      return Math.floor((d - new Date()) / (1000 * 60 * 60 * 24));
+    }
+    function mean(arr) {
+      arr = arr.filter(x => x !== null && x !== undefined && !isNaN(x));
+      return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    }
+
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+      let file = e.target.files[0];
+      if (!file) return;
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          let rows = results.data;
+          let N = rows.length;
+          let insights = [];
+          // Quick helpers for columns
+          function getCol(row, col, fallback=0) {
+            let v = row[col];
+            if (v === undefined || v === null || v === '') return fallback;
+            if (typeof fallback === 'number') return Number(v);
+            return v;
+          }
+          // 1. Bundling Gap
+          let bgap = rows.filter(row =>
+            (getCol(row,'home_flag')==1 && getCol(row,'auto_flag')==1 && row['primary_carrier']!==row['secondary_carrier_optional']) ||
+            (getCol(row,'home_flag')+getCol(row,'auto_flag')==1)
+          );
+          insights.push({n:1, title:'Bundling Gap', count:bgap.length, badge:pct(bgap.length,N)>25?'urgent':'opportunity', def:'HH has home & auto but different carriers, or only one eligible line.'});
+
+          // 2. Coverage Depth Tier
+          let shallow = rows.filter(row=>getCol(row,'lines_count')==1).length;
+          let core = rows.filter(row=>getCol(row,'lines_count')==2).length;
+          let deep = rows.filter(row=>getCol(row,'lines_count')>=3).length;
+          insights.push({n:2, title:'Coverage Depth Tier', count:`${pct(shallow,N)}% shallow, ${pct(core,N)}% core, ${pct(deep,N)}% deep`, badge:'good', def:'Classifies HH by lines_count.'});
+
+          // 3. Umbrella Opportunity
+          let umbOpp = rows.filter(row=>getCol(row,'umbrella_flag')==0 && (getCol(row,'home_flag')==1||getCol(row,'auto_flag')==1) && !`${row['segment_tier']}`.toLowerCase().includes('bronze'));
+          insights.push({n:3, title:'Umbrella Opportunity', count:umbOpp.length, badge:umbOpp.length>20?'opportunity':'good', def:'Suitable HH without umbrella.'});
+
+          // 4. Water Backup Gap
+          let wbGap = rows.filter(row=>!row['water_backup_limit']||getCol(row,'water_backup_limit')==0);
+          insights.push({n:4, title:'Water Backup Gap', count:wbGap.length, badge:wbGap.length>10?'urgent':'good', def:'HH lacks water backup coverage.'});
+
+          // 5. Service Line Gap
+          let slGap = rows.filter(row=>!row['service_line_coverage_limit']||getCol(row,'service_line_coverage_limit')==0);
+          insights.push({n:5, title:'Service Line Gap', count:slGap.length, badge:slGap.length>10?'urgent':'good', def:'Missing service line coverage.'});
+
+          // 6. Equipment Breakdown Gap
+          let eqGap = rows.filter(row=>getCol(row,'equipment_breakdown_flag')==0);
+          insights.push({n:6, title:'Equipment Breakdown Gap', count:eqGap.length, badge:pct(eqGap.length,N)>20?'urgent':'good', def:'No equipment breakdown endorsement.'});
+
+          // 7. Roof Upgrade Gap
+          let roofGap = rows.filter(row=>getCol(row,'roof_surfacing_loss_settlement')==0);
+          insights.push({n:7, title:'Roof Upgrade Gap', count:roofGap.length, badge:roofGap.length>10?'opportunity':'good', def:'Roof upgrade not present where carrier offers.'});
+
+          // 8. Pet Injury Gap (Auto)
+          let petGap = rows.filter(row=>getCol(row,'auto_flag')==1 && getCol(row,'pet_injury_flag')==0);
+          let autoCount = rows.filter(row=>getCol(row,'auto_flag')==1).length;
+          insights.push({n:8, title:'Pet Injury Gap (Auto)', count:`${petGap.length} / ${autoCount}`, badge:pct(petGap.length,autoCount)>15?'opportunity':'good', def:'Auto HH without pet injury.'});
+
+          // 9. Key Fob Replacement Gap
+          let fobGap = rows.filter(row=>getCol(row,'key_fob_replacement_flag')==0);
+          insights.push({n:9, title:'Key Fob Replacement Gap', count:fobGap.length, badge:fobGap.length>20?'opportunity':'good', def:'HH lacks key fob coverage add-on.'});
+
+          // 10. Refrigerated Products Coverage Gap
+          let fridgeGap = rows.filter(row=>getCol(row,'refrigerated_products_flag')==0 || getCol(row,'refrigerated_products_limit')==0);
+          insights.push({n:10, title:'Refrigerated Products Coverage Gap', count:fridgeGap.length, badge:fridgeGap.length>15?'opportunity':'good', def:'HH lacks food spoilage coverage.'});
+
+          // 11. Home + Umbrella, No Auto
+          let homeUmbNoAuto = rows.filter(row=>getCol(row,'home_flag')==1 && getCol(row,'umbrella_flag')==1 && getCol(row,'auto_flag')==0);
+          insights.push({n:11, title:'Home+Umbrella, No Auto', count:homeUmbNoAuto.length, badge:'opportunity', def:'Easy cross-sell to complete classic trio.'});
+
+          // 12. Auto + Umbrella, No Home
+          let autoUmbNoHome = rows.filter(row=>getCol(row,'auto_flag')==1 && getCol(row,'umbrella_flag')==1 && getCol(row,'home_flag')==0);
+          insights.push({n:12, title:'Auto+Umbrella, No Home', count:autoUmbNoHome.length, badge:'opportunity', def:'Missing property line.'});
+
+          // 13. High RL Segment
+          let highRL = rows.filter(row=>getCol(row,'remarkets_12m')/(getCol(row,'remarkets_12m')+1)*100>25);
+          insights.push({n:13, title:'High RL Segment', count:highRL.length, badge:pct(highRL.length,N)>10?'urgent':'good', def:'Segment with RL above target.'});
+
+          // 14. Chronic Remarketer HH (placeholder)
+          insights.push({n:14, title:'Chronic Remarketer HH', count:'(event log needed)', badge:'warn', def:'HH remarketed ≥2 of last 3 cycles.'});
+
+          // 15. Renewal No Review Window
+          let reviewGap = rows.filter(row=>daysUntil(row['renewal_date'])<30 && (daysUntil(row['last_reviewed_date'])>60 || !row['last_reviewed_date']));
+          insights.push({n:15, title:'Renewal No Review Window', count:reviewGap.length, badge:reviewGap.length>5?'urgent':'good', def:'Renewals in next 30 days without recent review.'});
+
+          // 16. Producer Re-shop Outlier (placeholder)
+          insights.push({n:16, title:'Producer Re-shop Outlier', count:'(monthly RL needed)', badge:'warn', def:'Producer with RL >150% agency avg for 2+ months.'});
+
+          // 17. Carrier Appetite Mismatch
+          let carrierRL = {};
+          rows.forEach(row=>{
+            let c=row['primary_carrier'];
+            carrierRL[c]=carrierRL[c]||{count:0,sum:0};
+            carrierRL[c].count++; carrierRL[c].sum+=getCol(row,'remarkets_12m');
+          });
+          let agencyRL = mean(rows.map(row=>getCol(row,'remarkets_12m')));
+          let mismatchCarriers = Object.entries(carrierRL).filter(([c,val])=>val.sum/val.count>1.75*agencyRL).map(([c])=>c);
+          insights.push({n:17, title:'Carrier Appetite Mismatch', count:mismatchCarriers.join(', '), badge:mismatchCarriers.length?'urgent':'good', def:'High RL concentrated on one carrier.'});
+
+          // 18. Late-Bound Renewals (placeholder)
+          insights.push({n:18, title:'Late-Bound Renewals', count:'(event log needed)', badge:'warn', def:'Policies bound within 3 days of renewal.'});
+
+          // 19. Non-renewal Early Warning
+          let earlyWarn = rows.filter(row=>getCol(row,'churn_risk_score_0_1')>=0.7 && daysUntil(row['renewal_date'])<45);
+          insights.push({n:19, title:'Non-renewal Early Warning', count:earlyWarn.length, badge:earlyWarn.length>5?'urgent':'opportunity', def:'HH with high churn risk and upcoming renewal.'});
+
+          // 20. Remarketing Reason Pareto
+          let reasonCounts = {};
+          rows.forEach(row=>reasonCounts[row['remarket_reason']] = (reasonCounts[row['remarket_reason']]||0)+1);
+          let sortedReasons = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]);
+          let top3Reasons = sortedReasons.slice(0,3).map(([reason,count])=>`${reason}: ${pct(count,N)}%`).join(', ');
+          insights.push({n:20, title:'Remarketing Reason Pareto', count:top3Reasons, badge:'good', def:'Top 3 reasons drive 80% of remarkets.'});
+
+          // 21. High Minutes HH
+          let serviceMinutes = rows.map(row=>getCol(row,'service_touches_12m')*getCol(row,'avg_minutes_per_touch'));
+          let threshold90 = percentile(serviceMinutes,90);
+          let highMinutesHH = rows.filter((row,i)=>serviceMinutes[i]>=threshold90);
+          insights.push({n:21, title:'High Minutes HH', count:highMinutesHH.length, badge:'urgent', def:'HH in top decile of service minutes.'});
+
+          // 22. Channel Cost Overweight
+          let channelMinutes = {};
+          rows.forEach(row=>{
+            let ch=row['service_channel'];
+            channelMinutes[ch]=channelMinutes[ch]||[];
+            channelMinutes[ch].push(getCol(row,'avg_minutes_per_touch'));
+          });
+          let channelOverweight = Object.entries(channelMinutes).filter(([ch,minArr])=>mean(minArr)>mean(serviceMinutes));
+          insights.push({n:22, title:'Channel Cost Overweight', count:channelOverweight.map(c=>c[0]).join(','), badge:channelOverweight.length?'opportunity':'good', def:'Channel with minutes/touch > benchmark.'});
+
+          // 23. Proof of Insurance Drain (placeholder)
+          insights.push({n:23, title:'Proof of Insurance Drain', count:'(event log needed)', badge:'warn', def:'High minutes on ID card/COI requests.'});
+
+          // 24. Billing & Payments Time Sink (placeholder)
+          insights.push({n:24, title:'Billing & Payments Time Sink', count:'(event log needed)', badge:'warn', def:'High minutes on billing issues.'});
+
+          // 25. Claim Follow-up Burden (placeholder)
+          insights.push({n:25, title:'Claim Follow-up Burden', count:'(event log needed)', badge:'warn', def:'Minutes spent on claim follow-ups above threshold.'});
+
+          // 26. Unbundled Overhead
+          let unbundledHH = rows.filter(row=>getCol(row,'bundled_flag')==0);
+          let unbundledMinutes = mean(unbundledHH.map(row=>getCol(row,'service_touches_12m')*getCol(row,'avg_minutes_per_touch')));
+          insights.push({n:26, title:'Unbundled Overhead', count:unbundledMinutes.toFixed(2)+' min/HH', badge:unbundledMinutes>20?'opportunity':'good', def:'Extra minutes from cross-carrier admin for splits.'});
+
+          // 27. CSR Load Imbalance (placeholder)
+          insights.push({n:27, title:'CSR Load Imbalance', count:'(CSR column/event log needed)', badge:'warn', def:'One CSR’s book consumes ≥30% more minutes/HH than median.'});
+
+          // 28. First-Contact Resolution Gap (placeholder)
+          insights.push({n:28, title:'First-Contact Resolution Gap', count:'(event log needed)', badge:'warn', def:'Multi-touch service threads where 1-touch should suffice.'});
+
+          // 29. AHT Outlier
+          let ahtArr = rows.map(row=>getCol(row,'avg_minutes_per_touch'));
+          let ahtP90 = percentile(ahtArr,90);
+          let ahtOutlier = rows.filter(row=>getCol(row,'avg_minutes_per_touch')>=ahtP90);
+          insights.push({n:29, title:'AHT Outlier', count:ahtOutlier.length, badge:ahtOutlier.length>10?'opportunity':'good', def:'AHT (avg min/touch) in top decile.'});
+
+          // 30. Self-Service Uptake
+          let channelMix = {};
+          rows.forEach(row=>channelMix[row['service_channel']]=(channelMix[row['service_channel']]||0)+1);
+          let portalShare = pct(channelMix['Portal']||0,N);
+          insights.push({n:30, title:'Self-Service Uptake', count:`Portal: ${portalShare}%`, badge:portalShare<25?'opportunity':'good', def:'Share of portal/email vs phone.'});
+
+          // 31. Tenure Momentum Negative
+          let tenureArr = rows.map(row=>getCol(row,'tenure_years'));
+          let tenureMomentum = tenureArr.reduce((a,b)=>a+b,0)/N - (tenureArr.slice(1).reduce((a,b)=>a+b,0)/(N-1));
+          insights.push({n:31, title:'Tenure Momentum Negative', count:tenureMomentum<0?'Negative':'Positive', badge:tenureMomentum<0?'urgent':'good', def:'MoM avg tenure decreasing.'});
+
+          // 32. Low Tenure, High Depth Risk
+          let lowTenureHighDepth = rows.filter(row=>getCol(row,'tenure_years')<2 && getCol(row,'lines_count')>=2 && getCol(row,'churn_risk_score_0_1')>=0.6);
+          insights.push({n:32, title:'Low Tenure, High Depth Risk', count:lowTenureHighDepth.length, badge:lowTenureHighDepth.length>5?'urgent':'good', def:'Newer HH with ≥2 lines but high churn risk.'});
+
+          // 33. Retention Weak Signal
+          let notRetained = rows.filter(row=>getCol(row,'retained_last_term_flag')==0);
+          insights.push({n:33, title:'Retention Weak Signal', count:`${pct(notRetained.length,N)}% not retained`, badge:pct(notRetained.length,N)>10?'urgent':'good', def:'Prior term not retained.'});
+
+          // 34. Claims Backlog
+          let claimBacklog = mean(rows.map(row=>getCol(row,'claims_open_count')));
+          insights.push({n:34, title:'Claims Backlog', count:claimBacklog.toFixed(2)+' open claims/HH', badge:claimBacklog>0.2?'urgent':'good', def:'Open claims per HH exceeds threshold.'});
+
+          // 35. High Claim Frequency Cohort
+          let segClaimClosed = {};
+          rows.forEach(row=>{
+            segClaimClosed[row['segment_tier']] = segClaimClosed[row['segment_tier']]||[];
+            segClaimClosed[row['segment_tier']].push(getCol(row,'claims_closed_12m'));
+          });
+          let cohortHigh = Object.entries(segClaimClosed).filter(([seg,arr])=>mean(arr)>1.5*mean(rows.map(row=>getCol(row,'claims_closed_12m')))).map(([seg])=>seg);
+          insights.push({n:35, title:'High Claim Frequency Cohort', count:cohortHigh.join(', '), badge:cohortHigh.length?'opportunity':'good', def:'Segment w/ higher claims_closed_12m/HH.'});
+
+          // 36. Experience Quality Dip
+          let eqDip = mean(rows.map(row=>getCol(row,'claims_open_count')))>mean(rows.map(row=>getCol(row,'claims_closed_12m')));
+          insights.push({n:36, title:'Experience Quality Dip', count:eqDip?'Dip':'Stable', badge:eqDip?'urgent':'good', def:'EQ proxy falling (open claims up, closed claims down).'});
+
+          // 37. Review Freshness Gap
+          let staleDate = new Date(Date.now()-365*24*60*60*1000);
+          let reviewStale = rows.filter(row=>!row['last_reviewed_date'] || new Date(row['last_reviewed_date']) < staleDate);
+          insights.push({n:37, title:'Review Freshness Gap', count:reviewStale.length, badge:reviewStale.length>20?'urgent':'good', def:'HH not reviewed in > 12 months.'});
+
+          // 38. Churn Risk Hot List
+          let churnArr = rows.map(row=>getCol(row,'churn_risk_score_0_1'));
+          let churnP90 = percentile(churnArr,90);
+          let churnHot = rows.filter(row=>getCol(row,'churn_risk_score_0_1')>=churnP90 && daysUntil(row['renewal_date'])<60);
+          insights.push({n:38, title:'Churn Risk Hot List', count:churnHot.length, badge:churnHot.length>10?'urgent':'good', def:'Top decile churn risk approaching renewal.'});
+
+          // 39. Account Value Underweighted
+          let premiumArr = rows.map(row=>getCol(row,'written_premium_total'));
+          let premiumP75 = percentile(premiumArr,75);
+          let underweighted = rows.filter(row=>getCol(row,'written_premium_total')>=premiumP75 && getCol(row,'lines_count')==1);
+          insights.push({n:39, title:'Account Value Underweighted', count:underweighted.length, badge:underweighted.length>10?'opportunity':'good', def:'High premium accounts with shallow depth.'});
+
+          // 40. Commission Efficiency
+          let commArr = rows.map(row=>(getCol(row,'written_premium_total')*getCol(row,'commission_rate_pct')/100)/(getCol(row,'service_touches_12m')*getCol(row,'avg_minutes_per_touch')||1));
+          let commEff = mean(commArr);
+          insights.push({n:40, title:'Commission Efficiency', count:'$'+commEff.toFixed(2)+' per minute', badge:commEff<2?'warn':'good', def:'Commission per service minute.'});
+
+          // 41. Remarketing ROI
+          let roiHH = rows.filter(row=>getCol(row,'est_minutes_per_remarket')*1.25 > getCol(row,'written_premium_total')*0.01);
+          insights.push({n:41, title:'Remarketing ROI', count:roiHH.length, badge:roiHH.length>10?'opportunity':'good', def:'Net gain from remarkets vs time spent.'});
+
+          // 42. Discount Leakage
+          let discountLeak = rows.filter(row=>getCol(row,'bundle_discount_flag')==0 || getCol(row,'safe_driver_flag')==0);
+          insights.push({n:42, title:'Discount Leakage', count:discountLeak.length, badge:discountLeak.length>10?'opportunity':'good', def:'Eligible discounts not applied.'});
+
+          // 43. Carrier Mix Concentration
+          let carrierArr = {};
+          rows.forEach(row=>carrierArr[row['primary_carrier']]=(carrierArr[row['primary_carrier']]||0)+1);
+          let carrierMix = Object.entries(carrierArr).filter(([c,n])=>pct(n,N)>45).map(([c])=>c);
+          insights.push({n:43, title:'Carrier Mix Concentration', count:carrierMix.join(', '), badge:carrierMix.length?'warn':'good', def:'Over-reliance on one carrier > 45%.'});
+
+          // 44. Rate Shock Sensitivity
+          let rateShock = rows.filter(row=>(getCol(row,'churn_risk_score_0_1')>=0.6||getCol(row,'remarkets_12m')>=1) && daysUntil(row['renewal_date'])<60);
+          insights.push({n:44, title:'Rate Shock Sensitivity', count:rateShock.length, badge:rateShock.length>10?'urgent':'good', def:'Accounts with high rate-change likelihood.'});
+
+          // 45. Producer Depth Delta (placeholder)
+          insights.push({n:45, title:'Producer Depth Delta', count:'(producer column needed)', badge:'warn', def:'Producer’s depth vs agency average.'});
+
+          // 46. Producer TBN Opportunity (placeholder)
+          insights.push({n:46, title:'Producer TBN Opportunity', count:'(producer column needed)', badge:'warn', def:'Hours reclaimable from Top-N splits.'});
+
+          // 47. Office RL Outlier
+          let officeRL = {};
+          rows.forEach(row=>{
+            let o=row['office_location'];
+            officeRL[o]=officeRL[o]||{count:0,sum:0};
+            officeRL[o].count++; officeRL[o].sum+=getCol(row,'remarkets_12m');
+          });
+          let officeRLAvg = mean(rows.map(row=>getCol(row,'remarkets_12m')));
+          let officeRLout = Object.entries(officeRL).filter(([o,val])=>val.sum/val.count>1.5*officeRLAvg).map(([o])=>o);
+          insights.push({n:47, title:'Office RL Outlier', count:officeRLout.join(', '), badge:officeRLout.length?'warn':'good', def:'Office RL exceeds agency by 50%+ for 2 months.'});
+
+          // 48. Win Rate After Outreach (placeholder)
+          insights.push({n:48, title:'Win Rate After Outreach', count:'(event log needed)', badge:'warn', def:'Conversion after Top-N outreach.'});
+
+          // 49. Data Confidence Gap
+          let confidenceGap = rows.filter(row=>getCol(row,'data_confidence',1)<0.7||!row['renewal_date']||!row['lines_count']||!row['avg_minutes_per_touch']);
+          insights.push({n:49, title:'Data Confidence Gap', count:confidenceGap.length, badge:confidenceGap.length>5?'warn':'good', def:'Rows with data_confidence below threshold or key nulls.'});
+
+          // 50. Template Compliance
+          let requiredCols = ['household_id','tenure_years','lines_count','bundled_flag','renewal_date','service_touches_12m','avg_minutes_per_touch','remarkets_12m','est_minutes_per_remarket'];
+          let missing = requiredCols.filter(c=>!results.meta.fields.includes(c));
+          insights.push({n:50, title:'Template Compliance', count:missing.length?'Missing: '+missing.join(', '):'PASS', badge:missing.length?'urgent':'good', def:'Missing required headers or invalid types.'});
+
+          document.getElementById('summary').classList.remove('hidden');
+          document.getElementById('summary').innerHTML = `<b>Loaded ${N} households. <span class='good badge'>Insights computed!</span></b>`;
+          let tbody = document.getElementById('insightsBody');
+          tbody.innerHTML = '';
+          insights.forEach(ins => {
+            let badgeClass = ins.badge === 'urgent' ? 'urgent badge' : ins.badge === 'opportunity' ? 'opportunity badge' : ins.badge === 'good' ? 'good badge' : ins.badge === 'warn' ? 'warn badge' : 'elite badge';
+            tbody.innerHTML += `<tr>
+              <td>${ins.n}</td>
+              <td>${ins.title}</td>
+              <td>${ins.count}</td>
+              <td><span class="${badgeClass}">${ins.badge}</span></td>
+              <td>${ins.def}</td>
+            </tr>`;
+          });
+          document.getElementById('insightsTable').classList.remove('hidden');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
