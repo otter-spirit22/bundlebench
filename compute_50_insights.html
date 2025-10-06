@@ -6,10 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
-    body { background: #111827; color: #e5e7eb; font-family: Inter, Arial, sans-serif; padding: 2em;}
+    body { background: #fff; color: #222; font-family: Inter, Arial, sans-serif; padding: 2em;}
     .insight-table { width: 100%; border-collapse: collapse; margin-top: 2em; }
-    .insight-table th, .insight-table td { border: 1px solid #333; padding: 8px; font-size: 0.98em; }
-    .insight-table th { background: #1a2236; }
+    .insight-table th, .insight-table td { border: 1px solid #ccc; padding: 8px; font-size: 0.98em; }
+    .insight-table th { background: #eee; }
     .urgent { background: #ef4444; color: #fff; font-weight: bold; }
     .opportunity { background: #6366f1; color: #fff; font-weight: bold; }
     .badge { border-radius: 10px; padding: 2px 8px; font-weight: 600; margin-right: 4px; }
@@ -68,7 +68,6 @@
           let rows = results.data;
           let N = rows.length;
           let insights = [];
-          // Quick helpers for columns
           function getCol(row, col, fallback=0) {
             let v = row[col];
             if (v === undefined || v === null || v === '') return fallback;
