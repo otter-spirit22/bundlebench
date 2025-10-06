@@ -485,6 +485,197 @@
       </div>
     </section>
 
+    <!-- Add this block to your index.html, e.g. after the "Concierge pilot" section -->
+
+<section id="csv-uploader" class="card" style="margin-top:24px;">
+  <h2>CSV Uploader: Visualize Agency Metrics</h2>
+  <div id="csv-dropzone" class="dropzone" style="padding:24px; border:2px dashed var(--accent); border-radius:12px; text-align:center;">
+    <p><strong>Drag &amp; drop your CSV here</strong><br>or <input type="file" id="csv-file" accept=".csv"></p>
+    <div id="csv-progress" style="display:none; margin:12px;">Parsing...</div>
+  </div>
+  <div id="csv-mapping" style="display:none; margin-top:18px;"></div>
+  <div id="csv-metrics" style="display:none; margin-top:18px;">
+    <h3>Computed Metrics</h3>
+    <canvas id="dial-coverageDepth" width="180" height="180"></canvas>
+    <canvas id="dial-remarketingLoad" width="180" height="180"></canvas>
+    <canvas id="dial-serviceTouchIndex" width="180" height="180"></canvas>
+    <canvas id="dial-tenureMomentum" width="180" height="180"></canvas>
+    <canvas id="dial-timeBackNumber" width="180" height="180"></canvas>
+    <canvas id="dial-benchScore" width="180" height="180"></canvas>
+  </div>
+</section>
+
+<!-- PapaParse CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const requiredColumns = [
+  {key: 'household_id', label: 'Household ID'},
+  {key: 'lines_count', label: 'Lines Count'},
+  {key: 'bundled_flag', label: 'Bundled?'},
+  {key: 'umbrella_flag', label: 'Umbrella?'},
+  {key: 'tenure_years', label: 'Tenure (years)'},
+  {key: 'service_touches_12m', label: 'Service Touches (12m)'},
+  {key: 'avg_minutes_per_touch', label: 'Avg Minutes/Touch'},
+  {key: 'remarkets_12m', label: 'Remarkets (12m)'},
+  {key: 'retained_last_term_flag', label: 'Retained Last Term?'},
+  {key: 'churn_risk_score_0_1', label: 'Churn Risk Score (0-1)'}
+  // Add more as needed for advanced metrics
+];
+
+let csvRows = [];
+let columnMapping = {};
+
+function showMappingUI(headers, previewRows) {
+  const mappingDiv = document.getElementById('csv-mapping');
+  mappingDiv.innerHTML = `<h3>Map CSV Columns</h3>
+    <table style="margin-bottom:12px;">
+      <tr>
+        <th>Metric</th>
+        <th>Your CSV Column</th>
+      </tr>
+      ${requiredColumns.map(col => `
+        <tr>
+          <td>${col.label}</td>
+          <td>
+            <select id="map-${col.key}">
+              <option value="">-- Select --</option>
+              ${headers.map(h => `<option value="${h}" ${h.toLowerCase().includes(col.key) ? 'selected' : ''}>${h}</option>`).join('')}
+            </select>
+          </td>
+        </tr>
+      `).join('')}
+    </table>
+    <button class="btn primary" id="csv-map-confirm">Confirm Mapping</button>
+    <h4>CSV Preview</h4>
+    <pre style="font-size:11px; background:#0001; border-radius:8px; padding:8px;">${JSON.stringify(previewRows,null,2)}</pre>
+  `;
+  mappingDiv.style.display = '';
+  document.getElementById('csv-map-confirm').onclick = function() {
+    // Save mapping
+    requiredColumns.forEach(col => {
+      columnMapping[col.key] = document.getElementById('map-' + col.key).value;
+    });
+    mappingDiv.style.display = 'none';
+    computeAndShowMetrics();
+  };
+}
+
+function computeAndShowMetrics() {
+  // Extract mapped columns
+  function get(row, key) {
+    let mapped = columnMapping[key];
+    if (!mapped) return undefined;
+    let val = row[mapped];
+    if (typeof val === 'string') val = val.trim();
+    // Convert flags to 0/1 if possible
+    if (mapped.toLowerCase().includes('flag')) {
+      if (val === '1' || val === 'true' || val === 'yes') return 1;
+      if (val === '0' || val === 'false' || val === 'no') return 0;
+    }
+    // Convert numbers
+    if (!isNaN(val)) return Number(val);
+    return val;
+  }
+
+  // Metrics
+  const households = csvRows.filter(row => get(row,'household_id'));
+  const lines2 = households.filter(row => get(row,'lines_count') >= 2 || get(row,'bundled_flag') == 1 || get(row,'umbrella_flag') == 1).length;
+  const coverageDepth = households.length ? lines2 / households.length : 0;
+
+  const remarkets = households.map(row => get(row,'remarkets_12m') || 0).reduce((a,b)=>a+b,0);
+  const renewals = households.length; // Assuming each row is a renewal
+  const remarketingLoad = renewals ? (remarkets / renewals) * 100 : 0;
+
+  const serviceTouches = households.map(row => get(row,'service_touches_12m') || 0).reduce((a,b)=>a+b,0);
+  const avgMinTouch = households.map(row => get(row,'avg_minutes_per_touch') || 0).reduce((a,b)=>a+b,0) / (households.length || 1);
+  const serviceTouchIndex = serviceTouches * avgMinTouch / (households.length || 1);
+
+  const tenureAvg = households.map(row => get(row,'tenure_years') || 0).reduce((a,b)=>a+b,0) / (households.length || 1);
+  // Direction is tracked MoM; here, just average
+  const tenureMomentum = tenureAvg;
+
+  // Time-Back Number™: For simplicity, delta between unbundled and bundled (here, just a mock calculation)
+  // You can refine with more columns (split signals, event log, etc.)
+  const timeBackNumber = ((remarketingLoad * avgMinTouch) / 60) * 12; // Monthly hours for top-12
+
+  // BenchScore™: weighted blend as per your formula
+  const br = coverageDepth; // Bundling Rate proxy
+  const rl = 1 - (remarketingLoad / 100); // Inverse load
+  const sti = 1 - (serviceTouchIndex / 10); // Scaled
+  const tenure = tenureMomentum / 10; // Scaled
+  const eq = 1 - (households.map(row => get(row,'churn_risk_score_0_1') || 0).reduce((a,b)=>a+b,0) / (households.length || 1)); // Experience Quality
+
+  const benchScore = Math.round((br * 0.25 + rl * 0.20 + sti * 0.15 + tenure * 0.20 + eq * 0.20) * 100);
+
+  // Show metrics visually
+  document.getElementById('csv-metrics').style.display = '';
+  drawDial('dial-coverageDepth','Coverage Depth',coverageDepth,1);
+  drawDial('dial-remarketingLoad','Remarketing Load',remarketingLoad,100);
+  drawDial('dial-serviceTouchIndex','Service Touch Index',serviceTouchIndex,10);
+  drawDial('dial-tenureMomentum','Tenure Momentum',tenureMomentum,10);
+  drawDial('dial-timeBackNumber','Time-Back Number™',timeBackNumber,100); // Adjust max as needed
+  drawDial('dial-benchScore','BenchScore™',benchScore,100);
+}
+
+function drawDial(canvasId,label,value,max) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
+  window[canvasId + 'Chart'] = new Chart(ctx,{
+    type: 'doughnut',
+    data: {
+      labels: [label],
+      datasets: [{
+        data: [value, Math.max(0,max-value)],
+        backgroundColor: ['#6366f1','#94a3b8'],
+        borderWidth: 2
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {display:false},
+        tooltip: {enabled:true},
+        title: {display:true, text: label}
+      },
+      cutout: '70%',
+    }
+  });
+}
+
+document.getElementById('csv-file').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('csv-progress').style.display = 'block';
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+      document.getElementById('csv-progress').style.display = 'none';
+      csvRows = results.data;
+      showMappingUI(results.meta.fields, results.data.slice(0,5));
+    }
+  });
+});
+
+// Optional: drag-and-drop support
+const dropzone = document.getElementById('csv-dropzone');
+dropzone.addEventListener('dragover', function(e){
+  e.preventDefault(); dropzone.style.background='#6366f122';
+});
+dropzone.addEventListener('dragleave', function(e){
+  e.preventDefault(); dropzone.style.background='';
+});
+dropzone.addEventListener('drop', function(e){
+  e.preventDefault(); dropzone.style.background='';
+  if (e.dataTransfer.files.length) {
+    document.getElementById('csv-file').files = e.dataTransfer.files;
+    document.getElementById('csv-file').dispatchEvent(new Event('change'));
+  }
+});
+</script>
+
     <section id="faq" class="card">
       <h2>FAQ</h2>
       <details open><summary>Do you store PII?</summary><p>No. You can remove names and use household IDs only. Optional email parsing stores only event type and ID.</p></details>
@@ -632,4 +823,5 @@
   </script>
 </body>
 </html>
+
 
