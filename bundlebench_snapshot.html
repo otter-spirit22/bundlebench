@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>BundleBench Snapshot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js Treemap plugin (for carrier breakdown) -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.0.1/dist/chartjs-chart-treemap.min.js"></script>
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    :root { /* Same dark theme as demo */
+      --bg: #0f172a;
+      --panel: #1a2236;
+      --line: rgba(255,255,255,0.08);
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --good: #10b981;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --elite: #6366f1;
+      --radius: 14px;
+      --tile-size: 18px;
+    }
+    html, body {
+      background: linear-gradient(180deg, #0b1024, #0a0f20);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      margin: 0;
+      padding: 0;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 30px;
+    }
+    h1, h2, h3, h4 {
+      margin: 0 0 10px;
+      font-weight: 700;
+    }
+    h1 { font-size: 2.2rem; }
+    h2 { font-size: 1.5rem; }
+    h3 { font-size: 1.1rem; color: var(--accent);}
+    section {
+      margin-bottom: 28px;
+      background: var(--panel);
+      border-radius: var(--radius);
+      box-shadow: 0 2px 16px #0002;
+      padding: 22px 22px 18px 22px;
+      border: 1px solid var(--line);
+    }
+    .row {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+    .tile {
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 220px;
+      box-shadow: 0 1px 8px #0001;
+      border: 1px solid var(--line);
+      position: relative;
+    }
+    .kpi {
+      font-size: 2.3rem;
+      font-weight: 800;
+      margin: 8px 0 0 0;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.85em;
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-weight: 600;
+      margin-top: 8px;
+      background: #1e293b;
+      border: 1px solid var(--line);
+    }
+    .badge.bad { background: var(--bad); color: #fff; }
+    .badge.warn { background: var(--warn); color: #fff; }
+    .badge.good { background: var(--good); color: #fff; }
+    .badge.elite { background: var(--elite); color: #fff; }
+    .viz {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+      margin-bottom: 8px;
+    }
+    .stacked-bar {
+      width: 340px;
+      height: 38px;
+      background: #222d48;
+      border-radius: 12px;
+      display: flex;
+      overflow: hidden;
+      box-shadow: 0 1px 6px #0002;
+      border: 1px solid var(--line);
+      position: relative;
+    }
+    .bar-bundled { background: var(--good);}
+    .bar-multiline { background: var(--warn);}
+    .bar-single { background: var(--bad);}
+    .bar-umbrella {
+      position: absolute;
+      top: 0; left: 0; height: 100%;
+      background: repeating-linear-gradient(45deg, #6366f1 0 8px, #222d48 8px 16px);
+      opacity: 0.7;
+      pointer-events: none;
+      z-index: 2;
+      border-radius: 12px;
+    }
+    .target-band {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%; width: 100%;
+      z-index: 1;
+      border-radius: 12px;
+      pointer-events: none;
+    }
+    .waffle {
+      display: grid;
+      grid-template-columns: repeat(10, var(--tile-size));
+      grid-template-rows: repeat(10, var(--tile-size));
+      gap: 2px;
+      margin: 12px auto 4px auto;
+      width: calc(var(--tile-size) * 10 + 20px);
+      justify-content: center;
+    }
+    .waffle-tile { width: var(--tile-size); height: var(--tile-size); border-radius: 4px; }
+    .waffle-bundled { background: var(--good);}
+    .waffle-multiline { background: var(--warn);}
+    .waffle-single { background: var(--bad);}
+    .waffle-umbrella { box-shadow: 0 0 0 2px var(--elite);}
+    .treemap-legend { display: flex; gap: 14px; margin-top: 6px; font-size: 0.9em;}
+    .treemap-item { display: flex; align-items: center;}
+    .treemap-color { width: 18px; height: 18px; display: inline-block; margin-right: 5px; border-radius: 4px;}
+    .chart-container { width: 310px; height: 110px; }
+    .spark-container { width: 180px; height: 50px;}
+    .spark-badge { font-size: 1em; font-weight: 600; margin-left: 8px; padding: 4px 9px; border-radius: 8px; background: #222d48; border: 1px solid var(--line); position: relative; top: -4px;}
+    .waterfall-list { font-size: 0.98em; margin: 8px 0 0 0; padding-left: 18px;}
+    .waterfall-list li { margin-bottom: 3px; }
+    .kpi-label { font-size: 1.18em; color: var(--muted);}
+    .tooltip { font-size: 0.97em; background: #222d48; color: var(--text); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); margin-top: 8px; display: inline-block; max-width: 340px;}
+    .pill-bars { display: flex; gap: 4px; margin: 10px 0 0 0;}
+    .pill-bar { height: 18px; border-radius: 8px; background: #272b44; flex: 1; position: relative; overflow: hidden; border: 1px solid var(--line); margin-bottom: 4px;}
+    .pill-bar-fill { height: 100%; border-radius: 8px; position: absolute; top: 0; left: 0;}
+    .pill-br { background: var(--good);}
+    .pill-rl { background: var(--bad);}
+    .pill-sti { background: var(--warn);}
+    .pill-tenure { background: var(--accent);}
+    .pill-eq { background: var(--elite);}
+    .csv-upload {
+      background: #222d48;
+      border: 2px dashed var(--accent);
+      border-radius: 12px;
+      text-align: center;
+      padding: 18px;
+      margin-bottom: 22px;
+    }
+    .mapping-table { margin: 0 auto 14px auto; }
+    .mapping-table th, .mapping-table td { padding: 6px 12px; font-size: 0.98em; }
+    .mapping-table select { background: #1a2236; color: var(--text); border-radius: 6px; border: 1px solid var(--line);}
+    @media (max-width: 900px) {
+      .row { flex-direction: column; }
+      .chart-container, .spark-container { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>BundleBench: Live Snapshot</h1>
+    <div class="csv-upload">
+      <h2>Upload Your Household Snapshot CSV</h2>
+      <input type="file" id="csvFile" accept=".csv">
+      <div id="csvStatus" style="margin-top:12px;color:var(--muted);"></div>
+      <div id="mappingUI" style="margin-top:22px;"></div>
+    </div>
+    <div id="snapshotBody" style="display:none;">
+      <div class="row">
+        <!-- BenchScore (gauge) -->
+        <section class="tile">
+          <h3>BenchScore™</h3>
+          <canvas id="benchscoreGauge" width="105" height="105"></canvas>
+          <div class="kpi" id="benchscoreVal"></div>
+          <span class="badge" id="benchscoreBadge"></span>
+          <div class="pill-bars" id="pillBars"></div>
+          <div class="tooltip">
+            0–100 composite of Bundling Rate, RL, STI, Retention, and Experience Quality.
+          </div>
+        </section>
+        <!-- Time-Back Number (KPI + Waterfall) -->
+        <section class="tile">
+          <h3>Time-Back Number™</h3>
+          <div class="kpi" id="tbnKpi"></div>
+          <span class="badge" id="tbnBadge"></span>
+          <div class="kpi-label">Monthly hours reclaimable (Top‑12 split)</div>
+          <ul class="waterfall-list" id="tbnWaterfall"></ul>
+          <div class="tooltip">
+            Estimated monthly hours saved if we convert your Top-N split accounts to bundled, using assumptions or measured time.
+          </div>
+        </section>
+        <!-- Coverage Depth (stacked bar) -->
+        <section class="tile">
+          <h3>Coverage Depth</h3>
+          <div class="viz">
+            <div class="stacked-bar" id="coverageBar"></div>
+          </div>
+          <div>
+            <span class="badge" id="coverageBadge"></span>
+            <span style="margin-left:10px;">Umbrella: <b id="umbrellaVal"></b></span>
+          </div>
+          <div class="tooltip">
+            % of active households with ≥2 lines or bundled with same carrier. Umbrella and key endorsements increase quality of depth.
+          </div>
+        </section>
+      </div>
+      <div class="row">
+        <!-- RL (run chart) -->
+        <section class="tile">
+          <h3>Remarketing Load</h3>
+          <div class="chart-container"><canvas id="rlRunChart"></canvas></div>
+          <span class="badge" id="rlBadge"></span>
+          <div class="tooltip">
+            Remarket events per 100 renewals this period. Lower is better.
+          </div>
+        </section>
+        <!-- STI (bullet) -->
+        <section class="tile">
+          <h3>Service Touch Index</h3>
+          <div class="chart-container"><canvas id="stiBullet"></canvas></div>
+          <span class="badge" id="stiBadge"></span>
+          <div class="tooltip">
+            Total service minutes per household per year. From logged touches or touches × avg minutes.
+          </div>
+        </section>
+        <!-- Tenure Momentum (sparkline) -->
+        <section class="tile">
+          <h3>Tenure Momentum</h3>
+          <div class="spark-container"><canvas id="tenureSpark"></canvas></div>
+          <span class="spark-badge" id="tenureRate"></span>
+          <div class="tooltip">
+            Month-over-month change in average tenure (annualized), weighted by depth/bundled.
+          </div>
+        </section>
+      </div>
+      <div class="row">
+        <!-- Coverage Depth Secondary: Waffle, Treemap -->
+        <section class="tile" style="min-width:320px;flex:2;">
+          <h3>Coverage Depth: Secondary Views</h3>
+          <div>
+            <div class="waffle" id="waffle"></div>
+            <div style="margin:10px 0 6px 0; font-size:0.98em;">Waffle: Each square = 1% of households</div>
+          </div>
+          <div>
+            <canvas id="treemap" width="300" height="110"></canvas>
+            <div class="treemap-legend" id="treemapLegend"></div>
+          </div>
+        </section>
+        <!-- RL Secondary: Pareto Bar -->
+        <section class="tile">
+          <h3>Top Remarket Reasons (Pareto)</h3>
+          <div class="chart-container"><canvas id="rlPareto"></canvas></div>
+          <div class="tooltip">
+            Pareto bar of top remarket reasons.
+          </div>
+        </section>
+        <!-- STI Secondary: Box by Channel -->
+        <section class="tile">
+          <h3>Service Minutes by Channel</h3>
+          <div class="chart-container"><canvas id="stiBox"></canvas></div>
+          <div class="tooltip">
+            Box/violin by channel (phone/email/text/portal) to see where minutes pile up.
+          </div>
+        </section>
+      </div>
+      <footer style="text-align:center;color:var(--muted);font-size:0.96em;margin-top:24px;">
+        Snapshot from uploaded data. No branding. For agency insight and team planning.
+      </footer>
+    </div>
+  </div>
+  <script>
+    // ---- CSV Mapping and Metric Calculation ----
+    const requiredColumns = [
+      {key: 'household_id', label: 'Household ID'},
+      {key: 'lines_count', label: 'Lines Count'},
+      {key: 'bundled_flag', label: 'Bundled?'},
+      {key: 'umbrella_flag', label: 'Umbrella?'},
+      {key: 'tenure_years', label: 'Tenure (years)'},
+      {key: 'service_touches_12m', label: 'Service Touches (12m)'},
+      {key: 'avg_minutes_per_touch', label: 'Avg Minutes/Touch'},
+      {key: 'remarkets_12m', label: 'Remarkets (12m)'},
+      {key: 'retained_last_term_flag', label: 'Retained Last Term?'},
+      {key: 'churn_risk_score_0_1', label: 'Churn Risk Score (0-1)'},
+      {key: 'primary_carrier', label: 'Primary Carrier'},
+      {key: 'remarket_reason', label: 'Remarket Reason'},
+      {key: 'service_channel', label: 'Service Channel'}
+      // Add more as needed for advanced visuals
+    ];
+
+    let csvRows = [];
+    let columnMapping = {};
+    let parsedHeaders = [];
+
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('csvStatus').textContent = "Parsing CSV...";
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          csvRows = results.data;
+          parsedHeaders = results.meta.fields;
+          document.getElementById('csvStatus').textContent = `Parsed ${csvRows.length} rows. Map columns below.`;
+          showMappingUI(parsedHeaders, csvRows.slice(0, 5));
+        }
+      });
+    });
+
+    function showMappingUI(headers, previewRows) {
+      let html = `<h3>Map CSV Columns</h3>
+        <table class="mapping-table">
+          <tr><th>Metric</th><th>Your CSV Column</th></tr>
+          ${requiredColumns.map(col => `
+            <tr>
+              <td>${col.label}</td>
+              <td>
+                <select id="map-${col.key}">
+                  <option value="">-- Select --</option>
+                  ${headers.map(h => `<option value="${h}" ${h.toLowerCase().includes(col.key) ? 'selected' : ''}>${h}</option>`).join('')}
+                </select>
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+        <button class="btn" id="csvMapConfirm" style="background:var(--accent);color:#fff;padding:8px 16px;margin-top:10px;border-radius:8px;border:none;font-weight:700;">Confirm Mapping</button>
+        <h4>CSV Preview</h4>
+        <pre style="font-size:11px; background:#0001; border-radius:8px; padding:8px;">${JSON.stringify(previewRows,null,2)}</pre>
+      `;
+      document.getElementById('mappingUI').innerHTML = html;
+      document.getElementById('csvMapConfirm').onclick = function() {
+        requiredColumns.forEach(col => {
+          columnMapping[col.key] = document.getElementById('map-' + col.key).value;
+        });
+        document.getElementById('mappingUI').innerHTML = "";
+        document.getElementById('csvStatus').textContent = "";
+        document.getElementById('snapshotBody').style.display = "";
+        computeAndShowMetrics();
+      };
+    }
+
+    function get(row, key) {
+      let mapped = columnMapping[key];
+      if (!mapped) return undefined;
+      let val = row[mapped];
+      if (typeof val === 'string') val = val.trim();
+      if (mapped.toLowerCase().includes('flag')) {
+        if (val === '1' || val === 'true' || val === 'yes') return 1;
+        if (val === '0' || val === 'false' || val === 'no') return 0;
+      }
+      if (!isNaN(val)) return Number(val);
+      return val;
+    }
+
+    function computeAndShowMetrics() {
+      const households = csvRows.filter(row => get(row,'household_id'));
+      const totalHH = households.length;
+      // Coverage Depth
+      const bundled = households.filter(row => get(row,'bundled_flag') == 1).length;
+      const multiline = households.filter(row => get(row,'lines_count') >= 2 && get(row,'bundled_flag') != 1).length;
+      const single = totalHH - bundled - multiline;
+      const umbrella = households.filter(row => get(row,'umbrella_flag') == 1).length;
+      const umbrellaPct = totalHH ? Math.round((umbrella/totalHH)*100) : 0;
+      // Coverage Depth benchmarks
+      let coveragePct = totalHH ? Math.round(((bundled+multiline)/totalHH)*100) : 0;
+      let coverageBand = coveragePct < 35 ? "bad" : coveragePct < 50 ? "warn" : coveragePct < 65 ? "good" : coveragePct < 80 ? "elite" : "elite";
+      // RL
+      const remarkets = households.map(row => get(row,'remarkets_12m') || 0).reduce((a,b)=>a+b,0);
+      const renewals = totalHH;
+      const remarketingLoad = renewals ? (remarkets / renewals) * 100 : 0;
+      let rlBand = remarketingLoad > 35 ? "bad" : remarketingLoad > 25 ? "warn" : remarketingLoad > 15 ? "good" : "elite";
+      // STI
+      const serviceTouches = households.map(row => get(row,'service_touches_12m') || 0).reduce((a,b)=>a+b,0);
+      const avgMinTouch = households.map(row => get(row,'avg_minutes_per_touch') || 0).reduce((a,b)=>a+b,0) / (totalHH || 1);
+      const serviceTouchIndex = totalHH ? (serviceTouches * avgMinTouch / totalHH) : 0;
+      let stiBand = serviceTouchIndex <= 45 ? "elite" : serviceTouchIndex <= 75 ? "good" : serviceTouchIndex <= 120 ? "warn" : "bad";
+      // Tenure Momentum
+      const tenureArr = households.map(row=>get(row,'tenure_years')||0);
+      const tenureAvg = tenureArr.reduce((a,b)=>a+b,0)/(totalHH||1);
+      // For demo: calculate MoM change (use last 12 tenure values for sparkline)
+      const tenureSparkArr = tenureArr.slice(-12);
+      let tenureChange = tenureSparkArr.length > 1 ? tenureSparkArr[tenureSparkArr.length-1] - tenureSparkArr[0] : 0.28;
+      let annualized = Math.round(tenureChange * 12 * 100)/100;
+      let tenureBand = annualized < 0.10 ? "bad" : annualized < 0.20 ? "warn" : annualized < 0.35 ? "good" : "elite";
+      // TBN
+      const timeBackNumber = Math.round(((remarketingLoad * avgMinTouch) / 60) * 12); // Monthly hours for top-12
+      let tbnBand = timeBackNumber < 20 ? "bad" : timeBackNumber < 40 ? "warn" : timeBackNumber < 60 ? "good" : "elite";
+      // BenchScore
+      const br = coveragePct/100; // Bundling Rate proxy
+      const rl = 1 - (remarketingLoad / 100); // Inverse load
+      const sti = 1 - (serviceTouchIndex / 150); // Scaled (max 150 min)
+      const tenure = tenureAvg/10; // Scaled
+      const eq = 1 - (households.map(row => get(row,'churn_risk_score_0_1') || 0).reduce((a,b)=>a+b,0) / (totalHH||1)); // Experience Quality
+      const benchScore = Math.round((br * 0.25 + rl * 0.20 + sti * 0.15 + tenure * 0.20 + eq * 0.20) * 100);
+      let benchBand = benchScore < 40 ? "bad" : benchScore < 60 ? "warn" : benchScore < 80 ? "good" : "elite";
+
+      // --- Render Visuals ---
+      // BenchScore Gauge
+      if (window.benchGauge) window.benchGauge.destroy();
+      window.benchGauge = new Chart(document.getElementById('benchscoreGauge').getContext('2d'), {
+        type: 'doughnut',
+        data: { datasets: [{ data: [benchScore, 100-benchScore], backgroundColor: [bandColor(benchBand),"#222d48"], borderWidth: 5 }] },
+        options: { cutout: '70%', plugins: { legend: {display:false}, tooltip: {enabled:false} } }
+      });
+      document.getElementById('benchscoreVal').textContent = benchScore;
+      document.getElementById('benchscoreBadge').textContent = bandLabel(benchBand);
+      document.getElementById('benchscoreBadge').className = "badge " + benchBand;
+      // Pill bars
+      let pillHtml = `
+        <div class="pill-bar"><div class="pill-bar-fill pill-br" style="width:${Math.round(br*100)}%;"></div></div>
+        <div class="pill-bar"><div class="pill-bar-fill pill-rl" style="width:${Math.round(rl*100)}%;"></div></div>
+        <div class="pill-bar"><div class="pill-bar-fill pill-sti" style="width:${Math.round(sti*100)}%;"></div></div>
+        <div class="pill-bar"><div class="pill-bar-fill pill-tenure" style="width:${Math.round(tenure*100)}%;"></div></div>
+        <div class="pill-bar"><div class="pill-bar-fill pill-eq" style="width:${Math.round(eq*100)}%;"></div></div>
+      `;
+      document.getElementById('pillBars').innerHTML = pillHtml;
+      // TBN KPI
+      document.getElementById('tbnKpi').textContent = timeBackNumber;
+      document.getElementById('tbnBadge').textContent = bandLabel(tbnBand);
+      document.getElementById('tbnBadge').className = "badge " + tbnBand;
+      document.getElementById('tbnWaterfall').innerHTML = `
+        <li>Touch delta (unbundled vs bundled): <b>${Math.round(timeBackNumber*0.42)} hrs</b></li>
+        <li>Remarkets avoided: <b>${Math.round(timeBackNumber*0.33)} hrs</b></li>
+        <li>Cross-carrier admin saved: <b>${Math.round(timeBackNumber*0.25)} hrs</b></li>
+      `;
+      // Coverage Depth Stacked Bar
+      let bar = document.getElementById('coverageBar');
+      bar.innerHTML = `
+        <div class="bar-bundled" style="width:${Math.round(bundled/totalHH*100)}%;"></div>
+        <div class="bar-multiline" style="width:${Math.round(multiline/totalHH*100)}%;"></div>
+        <div class="bar-single" style="width:${Math.round(single/totalHH*100)}%;"></div>
+        <div class="bar-umbrella" style="width:${Math.round(umbrella/totalHH*100)}%;"></div>
+        <div class="target-band" style="border:2px solid var(--good);left:50%;width:14%;"></div>
+      `;
+      document.getElementById('coverageBadge').textContent = bandLabel(coverageBand);
+      document.getElementById('coverageBadge').className = "badge " + coverageBand;
+      document.getElementById('umbrellaVal').textContent = umbrellaPct + "%";
+      // RL Run Chart
+      if (window.rlChart) window.rlChart.destroy();
+      window.rlChart = new Chart(document.getElementById('rlRunChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: Array(12).fill("").map((_,i)=>"M"+(i+1)),
+          datasets: [{ label: 'RL', data: Array(12).fill(remarketingLoad), borderColor: bandColor(rlBand), backgroundColor: bandColor(rlBand)+"22", pointRadius: 3, tension: 0.28, fill: true }]
+        },
+        options: { plugins: { legend: {display: false} }, scales: { y: {min: 0, max: 40, grid:{color:'#222d48'}, ticks:{color:'#cbd5e1'} } } }
+      });
+      document.getElementById('rlBadge').textContent = bandLabel(rlBand);
+      document.getElementById('rlBadge').className = "badge " + rlBand;
+      // STI Bullet Chart
+      (() => {
+        const ctx = document.getElementById('stiBullet').getContext('2d');
+        ctx.clearRect(0,0,310,110);
+        ctx.fillStyle = "#ef4444"; ctx.fillRect(16,40,64,28);
+        ctx.fillStyle = "#f59e0b"; ctx.fillRect(80,40,56,28);
+        ctx.fillStyle = "#10b981"; ctx.fillRect(136,40,56,28);
+        ctx.fillStyle = "#6366f1"; ctx.fillRect(192,40,70,28);
+        ctx.strokeStyle = "#fff"; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(136,40); ctx.lineTo(136,68); ctx.stroke();
+        ctx.fillStyle = bandColor(stiBand);
+        ctx.fillRect(16,54,Math.min(Math.round(serviceTouchIndex*2.3),210),14);
+        ctx.font = "bold 1.15em Inter";
+        ctx.fillStyle="#fff";
+        ctx.fillText(Math.round(serviceTouchIndex)+" min", 16, 36);
+        ctx.fillStyle="#94a3b8";
+        ctx.font="0.9em Inter";
+        ctx.fillText("Target: 75", 192, 36);
+      })();
+      document.getElementById('stiBadge').textContent = bandLabel(stiBand);
+      document.getElementById('stiBadge').className = "badge " + stiBand;
+      // Tenure Momentum Sparkline
+      (() => {
+        const ctx = document.getElementById('tenureSpark').getContext('2d');
+        if (window.tenureChart) window.tenureChart.destroy();
+        window.tenureChart = new Chart(ctx, {
+          type:'line',
+          data:{
+            labels:Array.from({length:tenureSparkArr.length},(_,i)=>''),
+            datasets:[{data:tenureSparkArr, borderColor:bandColor(tenureBand),backgroundColor:bandColor(tenureBand)+"44",pointRadius:2,fill:true,tension:0.18}]
+          },
+          options:{
+            plugins:{legend:{display:false}},
+            scales:{y:{display:false},x:{display:false}}
+          }
+        });
+        document.getElementById('tenureRate').innerHTML = `${annualized>=0?'+':''}${annualized} yrs/yr <span style='color:${bandColor(tenureBand)}'>▲</span>`;
+      })();
+      // Coverage Depth Secondary: Waffle
+      (() => {
+        let tiles = [];
+        for(let i=0;i<bundled;i++) tiles.push(`<div class="waffle-tile waffle-bundled${i<umbrella?' waffle-umbrella':''}"></div>`);
+        for(let i=0;i<multiline;i++) tiles.push(`<div class="waffle-tile waffle-multiline"></div>`);
+        for(let i=0;i<single;i++) tiles.push(`<div class="waffle-tile waffle-single"></div>`);
+        document.getElementById('waffle').innerHTML = tiles.join('');
+      })();
+      // Coverage Depth Secondary: Treemap
+      (() => {
+        let carrierMap = {};
+        households.forEach(row=>{
+          let c = get(row,'primary_carrier')||"Other";
+          carrierMap[c]=(carrierMap[c]||0)+1;
+        });
+        let carrierData = Object.entries(carrierMap).map(([carrier,value],i)=>({
+          carrier,value,color:carrierColor(i)
+        }));
+        if (window.treemapChart) window.treemapChart.destroy();
+        window.treemapChart = new Chart(document.getElementById('treemap').getContext('2d'),{
+          type:'treemap',
+          data:{
+            datasets:[{
+              tree: carrierData.map(c=>({v:c.value, carrier:c.carrier, color:c.color})),
+              key:'v',
+              groups:['carrier'],
+              backgroundColor: ctx => ctx.raw.color
+            }]
+          },
+          options:{
+            plugins:{legend:{display:false}},
+          }
+        });
+        let legend = carrierData.map(c=>`<span class="treemap-item"><span class="treemap-color" style="background:${c.color}"></span>${c.carrier}</span>`);
+        document.getElementById('treemapLegend').innerHTML = legend.join('');
+      })();
+      // RL Secondary: Pareto Bar
+      (() => {
+        let reasonMap = {};
+        households.forEach(row=>{
+          let reason=get(row,'remarket_reason');
+          if(!reason)reason="Other";
+          reasonMap[reason]=(reasonMap[reason]||0)+1;
+        });
+        let reasonData = Object.entries(reasonMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        if (window.rlParetoChart) window.rlParetoChart.destroy();
+        window.rlParetoChart = new Chart(document.getElementById('rlPareto').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: reasonData.map(d=>d[0]),
+            datasets: [{
+              data: reasonData.map(d=>d[1]),
+              backgroundColor: reasonData.map((d,i)=>carrierColor(i)),
+              borderRadius: 7,
+            }]
+          },
+          options: {
+            plugins:{legend:{display:false}},
+            indexAxis: 'y',
+            scales:{x:{display:false},y:{grid:{color:'#222d48'}, ticks:{color:'#cbd5e1'}}}
+          }
+        });
+      })();
+      // STI Secondary: Box/Violin by Channel
+      (() => {
+        let channelMap={};
+        households.forEach(row=>{
+          let ch=get(row,'service_channel')||"Other";
+          let min=get(row,'avg_minutes_per_touch')||0;
+          channelMap[ch]=(channelMap[ch]||[]).concat([min]);
+        });
+        let channelStats = Object.entries(channelMap).map(([ch,mins],i)=>({
+          ch,
+          avg:Math.round(mins.reduce((a,b)=>a+b,0)/mins.length),
+          color:carrierColor(i)
+        }));
+        if(window.stiBoxChart)window.stiBoxChart.destroy();
+        window.stiBoxChart = new Chart(document.getElementById('stiBox').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: channelStats.map(d=>d.ch),
+            datasets: [{
+              label:'Minutes',
+              data: channelStats.map(d=>d.avg),
+              backgroundColor: channelStats.map(d=>d.color),
+              borderRadius: 7,
+            }]
+          },
+          options: {
+            plugins:{legend:{display:false}},
+            scales:{y:{grid:{color:'#222d48'},ticks:{color:'#cbd5e1'}}}
+          }
+        });
+      })();
+    }
+
+    function bandColor(band) {
+      return band==="bad"? "#ef4444": band==="warn"? "#f59e0b": band==="good"? "#10b981": "#6366f1";
+    }
+    function bandLabel(band) {
+      return band==="bad"? "Needs work": band==="warn"? "Manageable": band==="good"? "Healthy": "Strong";
+    }
+    function carrierColor(i) {
+      const palette = ["#6366f1","#10b981","#f59e0b","#ef4444","#94a3b8","#7c3aed","#eab308","#f472b6"];
+      return palette[i%palette.length];
+    }
+  </script>
+</body>
+</html>
