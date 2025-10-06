@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Bundle Bench — Agency Health Snapshot &amp; Monthly Plan</title>
+  <title>Bundle Bench — Agency Health Snapshot & Monthly Plan</title>
   <style>
     :root {
       --bg: #0f172a; --panel: #0b1222; --line: rgba(255,255,255,0.10);
@@ -19,106 +19,53 @@
       color: var(--text);
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
-    a {
-      color: #c7d2fe;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    .wrap {
-      max-width: 1080px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+    a { color: #c7d2fe; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 20px; }
     header {
-      position: sticky;
-      top: 0;
+      position: sticky; top: 0;
       backdrop-filter: saturate(160%) blur(6px);
       background: rgba(15,23,42, .7);
       border-bottom: 1px solid var(--line);
       z-index: 20;
     }
     .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 10px 0;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0;
     }
     .brand {
-      font-weight: 800;
-      letter-spacing: .5px;
-      color: #c7d2fe;
-      text-transform: uppercase;
+      font-weight: 800; letter-spacing: .5px; color: #c7d2fe; text-transform: uppercase;
     }
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      border: 1px solid var(--line);
-      color: var(--text);
-      padding: 10px 14px;
-      border-radius: 12px;
-      background: transparent;
-      cursor: pointer;
-      font-weight: 700;
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid var(--line); color: var(--text);
+      padding: 10px 14px; border-radius: 12px;
+      background: transparent; cursor: pointer; font-weight: 700;
     }
     .btn.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
+      background: var(--accent); border-color: var(--accent); color: #fff;
     }
-    .btn.ghost {
-      background: transparent;
-    }
+    .btn.ghost { background: transparent; }
     .hero {
-      padding: 32px 0 16px;
-      display: grid;
-      gap: 12px;
+      padding: 32px 0 16px; display: grid; gap: 12px;
     }
-    h1 {
-      margin: 0;
-      font-size: 36px;
-      line-height: 1.15;
-    }
-    .sub {
-      color: #cbd5e1;
-      font-size: 16px;
-      max-width: 780px;
-    }
-    .cta {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 6px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 16px;
-    }
+    h1 { margin: 0; font-size: 36px; line-height: 1.15; }
+    .sub { color: #cbd5e1; font-size: 16px; max-width: 780px; }
+    .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
     .card {
       background: rgba(255,255,255, .04);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 16px;
+      margin-bottom: 24px;
     }
-    h2 {
-      margin: 0 0 10px;
-      font-size: 22px;
-    }
+    h2 { margin: 0 0 10px; font-size: 22px; }
     h3 {
-      margin: 8px 0 8px;
-      font-size: 16px;
-      color: #dbeafe;
-      letter-spacing: .3px;
-      text-transform: uppercase;
+      margin: 8px 0 8px; font-size: 16px; color: #dbeafe;
+      letter-spacing: .3px; text-transform: uppercase;
     }
+    .dils, .dials { } /* kept for compatibility */
     .dials {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 12px;
+      display: grid; grid-template-columns: repeat(12,1fr); gap: 12px;
     }
     .dial {
       grid-column: span 4;
@@ -126,153 +73,77 @@
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      display: flex; flex-direction: column; gap: 6px;
     }
-    .dial .label {
-      color: #cbd5e1;
-      font-size: 12px;
-    }
-    .dial .value {
-      font-size: 22px;
-      font-weight: 800;
-    }
+    .dial .label { color: #cbd5e1; font-size: 12px; }
+    .dial .value { font-size: 22px; font-weight: 800; }
     .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      padding: 3px 8px;
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; border-radius: 999px;
+      border: 1px solid var(--line); padding: 3px 8px;
       color: var(--text);
     }
     .badge.assumed {
-      border-color: #475569;
-      color: #e2e8f0;
+      border-color: #475569; color: #e2e8f0;
     }
     .badge.estimated {
-      border-color: #f59e0b;
-      color: #fde68a;
+      border-color: #f59e0b; color: #fde68a;
     }
     .badge.measured {
-      border-color: #10b981;
-      color: #a7f3d0;
+      border-color: #10b981; color: #a7f3d0;
     }
     .scenario {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 8px;
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
     }
     .scenario .option {
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      cursor: pointer;
+      padding: 8px 10px; border: 1px solid var(--line);
+      border-radius: 999px; cursor: pointer;
     }
     .scenario .option.active {
-      background: rgba(99,102,241, .18);
-      border-color: var(--accent);
+      background: rgba(99,102,241, .18); border-color: var(--accent);
     }
     .plan-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 12px;
+      list-style: none; margin: 0; padding: 0;
+      display: grid; grid-template-columns: repeat(12,1fr); gap: 12px;
     }
     .plan-item {
       grid-column: span 6;
       background: rgba(255,255,255, .03);
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
+      border-radius: 12px; padding: 12px;
     }
-    .muted {
-      color: var(--muted);
-    }
+    .muted { color: var(--muted); }
     .two-col {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 16px;
+      display: grid; grid-template-columns: repeat(12,1fr); gap: 16px;
     }
-    .two-col > .left {
-      grid-column: span 7;
-    }
-    .two-col > .right {
-      grid-column: span 5;
-    }
+    .two-col > .left { grid-column: span 7; }
+    .two-col > .right { grid-column: span 5; }
     label {
-      display: block;
-      font-size: 12px;
-      color: #cbd5e1;
+      display: block; font-size: 12px; color: #cbd5e1;
       margin: 8px 0 6px;
     }
     input[type="number"], select {
-      width: 100%;
-      padding: 10px 12px;
-      background: #0b1222;
-      border: 1px solid #22304a;
-      color: #e5e7eb;
-      border-radius: 10px;
+      width: 100%; padding: 10px 12px;
+      background: #0b1222; border: 1px solid #22304a;
+      color: var(--text); border-radius: 10px;
     }
     .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
     }
     .legend {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 8px;
+      display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;
     }
     .legend .item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: #cbd5e1;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: #cbd5e1;
     }
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-    .table th, .table td {
-      padding: 10px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-    }
-    .band {
-      background: rgba(99,102,241, .12);
-      border: 1px solid var(--accent);
-      padding: 16px;
-      border-radius: 12px;
-    }
-    footer {
-      margin: 30px 0 18px;
-      color: #94a3b8;
-      font-size: 12px;
-      text-align: center;
-    }
+    .error { color: #f76c6c; margin-top: 12px; }
     @media (max-width: 860px) {
       h1 { font-size: 28px; }
-      .two-col {
-        grid-template-columns: 1fr;
-      }
-      .two-col > .left, .two-col > .right {
-        grid-column: span 12;
-      }
-      .dial {
-        grid-column: span 6;
-      }
-      .plan-item {
-        grid-column: span 12;
-      }
+      .two-col { grid-template-columns: 1fr; }
+      .two-col > .left, .two-col > .right { grid-column: span 12; }
+      .dial { grid-column: span 6; }
+      .plan-item { grid-column: span 12; }
     }
   </style>
 </head>
@@ -290,15 +161,28 @@
   <main class="wrap">
     <section class="hero" id="hero">
       <h1>Understand your agency’s health at a glance.</h1>
-      <p class="sub">A calm monthly readout of capacity, remarketing pressure, and where to focus—plus a short plan your team will actually follow. No data upload required.</p>
+      <p class="sub">A calm monthly readout of capacity, remarketing pressure, and where to focus — plus a short plan your team will actually follow.</p>
       <div class="cta">
         <a class="btn primary" href="#snapshot">See my health snapshot</a>
         <a class="btn ghost" href="#plan">View this month’s plan</a>
-        <a class="btn ghost" href="#concierge">Try a concierge pilot</a>
+        <a class="btn ghost" href="#concierge">Try concierge pilot</a>
       </div>
     </section>
 
-    <section id="snapshot" class="card">
+    <section class="card">
+      <h2>Upload Your Data</h2>
+      <div>
+        <label for="csv-household">Household Snapshot CSV:</label>
+        <input type="file" id="csv-household" accept=".csv" />
+      </div>
+      <div style="margin-top:12px;">
+        <label for="csv-event">Event Log CSV (optional):</label>
+        <input type="file" id="csv-event" accept=".csv" />
+      </div>
+      <div class="error" id="upload-error"></div>
+    </section>
+
+    <section id="snapshot" class="card" style="display:none;">
       <div class="two-col">
         <div class="left">
           <h2>Health Snapshot</h2>
@@ -321,7 +205,7 @@
             <div class="dial" id="dial-sti">
               <div class="label">Service Touch Index</div>
               <div class="value" id="val-sti">—</div>
-              <div class="badge assumed" id="conf-sti">Assumed</div>
+              <div a class="badge assumed" id="conf-sti">Assumed</div>
             </div>
             <div class="dial" id="dial-depth">
               <div class="label">Coverage Depth</div>
@@ -334,45 +218,36 @@
               <div class="badge assumed" id="conf-tenure">Assumed</div>
             </div>
           </div>
-
-          <div class="legend">
-            <div class="item">
-              <span class="badge assumed">Assumed</span> sensible defaults
-            </div>
-            <div class="item">
-              <span class="badge estimated">Estimated</span> derived from your quick answers
-            </div>
-            <div class="item">
-              <span class="badge measured">Measured</span> captured automatically
-            </div>
+          <div class="legend" style="margin-top:12px;">
+            <div class="item"><span class="badge assumed">Assumed</span> defaults</div>
+            <div class="item"><span class="badge estimated">Estimated</span> from quiz or partial data</div>
+            <div class="item"><span class="badge measured">Measured</span> from full data</div>
           </div>
-
-          <div class="scenario">
+          <div class="scenario" style="margin-top:12px;">
             <div class="option active" data-scenario="baseline">Baseline</div>
             <div class="option" data-scenario="hard">Hard Market</div>
-            <div class="option" data-scenario="renewal">Busy Renewal Month</div>
+            <div class="option" data-scenario="renewal">Busy Renewal</div>
             <div class="option" data-scenario="growth">Growth Push</div>
           </div>
-
         </div>
         <div class="right">
-          <h3>Personalize (60 seconds)</h3>
-          <div class="muted" style="margin-bottom:8px">
-            Optional. No uploads. Improves accuracy to <span class="badge estimated">Estimated</span>.
+          <h3>Personalize (optional)</h3>
+          <div class="muted" style="margin-bottom:8px;">
+            Improves accuracy from <span class="badge estimated">Estimated</span> to better.
           </div>
           <div class="row">
             <div>
               <label>Households in scope</label>
-              <input type="number" id="q-book" value="500" min="50" step="50">
+              <input type="number" id="q-book" value="500" min="10" step="10">
             </div>
             <div>
-              <label>CSR loaded cost ($/hr)</label>
-              <input type="number" id="q-csr" value="32" min="20" step="1">
+              <label>CSR cost, $/hr</label>
+              <input type="number" id="q-csr" value="32" min="10" step="1">
             </div>
           </div>
-          <div class="row">
+          <div class="row" style="margin-top:8px;">
             <div>
-              <label>Bundling rate (rough)</label>
+              <label>Bundling rate</label>
               <select id="q-br">
                 <option value="0.35">35%</option>
                 <option value="0.45" selected>45%</option>
@@ -385,117 +260,81 @@
               <input type="number" id="q-rl" value="19" min="0" step="1">
             </div>
           </div>
-          <div class="row">
+          <div class="row" style="margin-top:8px;">
             <div>
-              <label>Typical minutes per touch</label>
+              <label>Minutes per service touch</label>
               <input type="number" id="q-aht" value="5" min="1" step="1">
             </div>
             <div>
-              <label>Minutes per remarket (est.)</label>
-              <input type="number" id="q-rm" value="80" min="30" step="5">
+              <label>Minutes per remarket</label>
+              <input type="number" id="q-rm" value="80" min="10" step="5">
             </div>
           </div>
-          <div class="row">
+          <div class="row" style="margin-top:8px;">
             <div>
               <label>Claims follow-up style</label>
               <select id="q-claims">
-                <option value="reactive">Mostly reactive</option>
+                <option value="reactive">Reactive</option>
                 <option value="balanced" selected>Balanced</option>
-                <option value="proactive">Proactive updates</option>
+                <option value="proactive">Proactive</option>
               </select>
             </div>
             <div>
-              <label>Top-10 plan size (targets)</label>
+              <label>Top‑N (targets)</label>
               <select id="q-topn">
-                <option>10</option>
-                <option selected>12</option>
+                <option>5</option>
+                <option selected>10</option>
                 <option>15</option>
               </select>
             </div>
           </div>
-
-          <div class="cta" style="margin-top:12px">
-            <button class="btn primary" id="btn-apply">Apply to snapshot</button>
+          <div class="cta" style="margin-top:12px;">
+            <button class="btn primary" id="btn-apply">Apply</button>
             <button class="btn ghost" id="btn-reset">Reset</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="plan" class="card">
+    <section id="plan" class="card" style="display:none; margin-top:24px;">
       <h2>This Month’s Plan</h2>
-      <div class="band" style="margin-bottom:10px">
-        <strong id="plan-headline">Top‑12 outreach ready</strong>
-        <div class="muted">Follow these outreach items to capture your Time-Back Number. Each has one-line reason and ready PDF.</div>
+      <div class="band" style="margin-bottom:10px;">
+        <strong id="plan-headline">Top‑N outreach ready</strong>
+        <div class="muted">Follow these items to capture your Time-Back Number.</div>
       </div>
-
       <ul class="plan-list" id="top-list">
-        <!-- plan items will be injected by JS -->
+        <!-- dynamic plan items go here -->
       </ul>
-
-      <div class="two-col" style="margin-top:12px">
-        <div class="left">
-          <h3>Stop the fire drills</h3>
-          <p><strong>No-Reflex Remarket™:</strong> Only quote when coverage fit or price delta clears your threshold; otherwise round the account first.</p>
-          <p><strong>30-Day Pre-Renewal Touch:</strong> Proactive check-in with expectations + options; reduces last-minute saves.</p>
-        </div>
-        <div class="right">
-          <h3>Ready-to-use PDFs</h3>
-          <p><a href="Meeting_Kit_Template.pptx" download>Client Meeting Kit (one-pager)</a></p>
-          <p><a href="Monthly_Scorecard_Template.pptx" download>Monthly Scorecard (owner view)</a></p>
-          <p class="muted">Use these while we tailor your plan. No logins; export to PDF for your team.</p>
-        </div>
-      </div>
     </section>
 
-    <section id="concierge" class="card">
+    <section id="concierge" class="card" style="margin-top:24px;">
       <h2>Concierge pilot</h2>
-      <p>Send a basic export (or use our CSV template). We’ll return your <strong>Top-100 list</strong>, <strong>Meeting Kits</strong>, and a <strong>before/after snapshot</strong>.</p>
+      <p>Send a basic CSV and we’ll return Top‑100, kits, before/after snapshot.</p>
       <p><a href="bundlelift_csv_template.csv" download>CSV Import Template</a></p>
-      <div class="band">Prefer no uploads? We can work from counts (book size, renewals/month, remarkets) and still deliver a credible plan.</div>
     </section>
 
-    <section id="learn" class="card">
-      <h2>Learn more about the measurements</h2>
+    <section id="learn" class="card" style="margin-top:24px;">
+      <h2>Learn about metrics</h2>
       <div class="accordion">
-        <details class="ac" id="m-tbn">
-          <summary>Time-Back Number™ — what it is and why it matters</summary>
-          <div class="ac-body"><p>The hours you can reclaim this month by completing the plan. It transforms friction (remarkets, service touches) into schedule space.</p></div>
-        </details>
-        <details class="ac" id="m-bscore">
-          <summary>BenchScore™ — the monthly health score</summary>
-          <div class="ac-body"><p>A 0–100 composite of five dials: Bundling Rate, Remarketing Load, Service Touch Index, Retention Strength, Experience Quality.</p></div>
-        </details>
-        <details class="ac" id="m-rl">
-          <summary>Remarketing Load — the fire-drill meter</summary>
-          <div class="ac-body"><p>Remarkets per 100 renewals. A high RL means more reactive quoting vs proactive work.</p></div>
-        </details>
-        <details class="ac" id="m-sti">
-          <summary>Service Touch Index — the back-and-forth meter</summary>
-          <div class="ac-body"><p>Touches × minutes per household. It quantifies the operational drag and chance for error.</p></div>
-        </details>
-        <details class="ac" id="m-depth">
-          <summary>Coverage Depth — lines per household</summary>
-          <div class="ac-body"><p>% of households with ≥2 lines (auto+home); umbrella adds stability & upsell potential.</p></div>
-        </details>
-        <details class="ac" id="m-tenure">
-          <summary>Tenure Momentum — years on book trending</summary>
-          <div class="ac-body"><p>Tracks direction and speed of average years on book. Often moves with coverage depth and client satisfaction.</p></div>
-        </details>
+        <details class="ac" id="m-tbn"><summary>Time‑Back Number™</summary><div class="ac-body"><p>The hours you can recapture this month by executing your plan.</p></div></details>
+        <details class="ac" id="m-bscore"><summary>BenchScore™</summary><div class="ac-body"><p>A 0–100 composite of your health across metrics.</p></div></details>
+        <details class="ac" id="m-rl"><summary>Remarketing Load</summary><div class="ac-body"><p>Remarkets per 100 renewals — your “fire-drill meter.”</p></div></details>
+        <details class="ac" id="m-sti"><summary>Service Touch Index</summary><div class="ac-body"><p>Average touches × minutes per household — measure of operational drag.</p></div></details>
+        <details class="ac" id="m-depth"><summary>Coverage Depth</summary><div class="ac-body"><p>% of households with ≥ 2 lines (or bundling/umbrella).</p></div></details>
+        <details class="ac" id="m-tenure"><summary>Tenure Momentum</summary><div class="ac-body"><p>Rate of change in average years on book.</p></div></details>
       </div>
     </section>
 
-    <section id="faq" class="card">
+    <section id="faq" class="card" style="margin-top:24px;">
       <h2>FAQ</h2>
-      <details open><summary>Do you store PII?</summary><p>No. You can remove names and use household IDs only. Optional email parsing stores only event type and ID.</p></details>
-      <details><summary>How accurate are the numbers?</summary><p>Strong on launch (Assumed). More accurate with quiz (Estimated). Best with optional signals (Measured).</p></details>
-      <details><summary>Does this replace my AMS?</summary><p>No. Bundle Bench sits beside your AMS, turning data into monthly insight and action.</p></details>
+      <details open><summary>Do you store PII?</summary><p>No. Use IDs only; names/emails are optional and not required.</p></details>
+      <details><summary>How accurate are the numbers?</summary><p>Initially based on assumptions (“Assumed”), improved with quiz data (“Estimated”), best with full CSV (“Measured”).</p></details>
+      <details><summary>Does this replace my core AMS?</summary><p>No. This works beside it — turning your data into insights + plans.</p></details>
     </section>
 
-    <footer>
-      © Bundle Bench. For planning only; actual times vary by workflow. • <a href="#hero">Back to top</a>
+    <footer style="margin-top:30px; text-align:center; font-size:12px; color: var(--muted);">
+      © Bundle Bench. For planning only. <a href="#hero">Back to top</a>
     </footer>
-
   </main>
 
   <script>
@@ -503,131 +342,135 @@
     const $ = sel => document.querySelector(sel);
     const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-    const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-    const fmtHours = h => `${h.toLocaleString(undefined,{maximumFractionDigits:0})} hrs`;
-    const pct = n => `${(n * 100).toFixed(0)}%`;
+    // CSV parsing helper (supports quoted fields)
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+      if (!lines.length) return [];
+      const headerParts = lines[0].match(/(".*?"|[^",\\s]+)(?=,|$)/g) || [];
+      const headers = headerParts.map(h => h.replace(/^"|"$/g, ""));
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].match(/(".*?"|[^",\\s]+)(?=,|$)/g) || [];
+        const obj = {};
+        headers.forEach((h, idx) => {
+          let v = parts[idx] || "";
+          v = v.replace(/^"|"$/g, "");
+          obj[h.trim()] = v.trim();
+        });
+        rows.push(obj);
+      }
+      return rows;
+    }
 
-    const state = {
-      scenario: 'baseline',
-      inputs: { book:500, csr:32, br:0.45, rl:19, aht:5, rm:80, claims:'balanced', topn:12 }
-    };
+    function validateHousehold(rows) {
+      if (!rows.length) return false;
+      const req = ["household_id", "lines_count", "remarkets_12m", "service_touches_12m"];
+      return req.every(k => k in rows[0]);
+    }
+    function validateEvents(rows) {
+      if (!rows.length) return true;
+      const req = ["household_id", "event_type", "minutes_spent"];
+      return req.every(k => k in rows[0]);
+    }
 
-    const presets = {
-      baseline: { br:0.45, rl:19, aht:5, rm:80, depth:0.41, tenure:5.8, topn:12 },
-      hard:     { br:0.42, rl:24, aht:6, rm:90, depth:0.38, tenure:5.5, topn:12 },
-      renewal:  { br:0.45, rl:22, aht:6, rm:85, depth:0.41, tenure:5.7, topn:15 },
-      growth:   { br:0.50, rl:18, aht:5, rm:75, depth:0.48, tenure:6.2, topn:12 }
-    };
+    function showError(msg) {
+      $('#upload-error').textContent = msg;
+    }
 
-    function computeSnapshot(){
-      const p = presets[state.scenario];
-      const br = state.inputs.br ?? p.br;
-      const rl = state.inputs.rl ?? p.rl;
-      const aht = state.inputs.aht ?? p.aht;
-      const rm = state.inputs.rm ?? p.rm;
-      const depth = p.depth * (br / p.br);
-      const tenure = p.tenure + (br - p.br) * 2;
-      const topn = parseInt(state.inputs.topn,10) || p.topn;
+    let householdData = [];
+    let eventData = [];
 
-      const minutesPerTarget = (rm * 0.4) + (aht * 3);
-      const tbnHours = (minutesPerTarget * topn) / 60;
+    function handleHouseholdFile(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const text = e.target.result;
+        const rows = parseCSV(text);
+        if (!validateHousehold(rows)) {
+          showError("Household CSV missing required columns.");
+          return;
+        }
+        householdData = rows;
+        showError("");
+        tryComputeAndRender();
+      };
+      reader.readAsText(file);
+    }
+    function handleEventFile(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const text = e.target.result;
+        const rows = parseCSV(text);
+        if (!validateEvents(rows)) {
+          showError("Event CSV missing required columns.");
+          return;
+        }
+        eventData = rows;
+        showError("");
+        tryComputeAndRender();
+      };
+      reader.readAsText(file);
+    }
 
-      const sti = 2.2 + (rl / 100) + (br < 0.5 ? 0.4 : 0.2);
+    $('#csv-household').addEventListener('change', e => {
+      if (e.target.files[0]) handleHouseholdFile(e.target.files[0]);
+    });
+    $('#csv-event').addEventListener('change', e => {
+      if (e.target.files[0]) handleEventFile(e.target.files[0]);
+    });
 
-      const wBR = clamp((br - 0.35) / 0.35, 0, 1);
-      const wRL = clamp(1 - (rl / 35), 0, 1);
-      const wSTI = clamp(1 - ((sti - 2.0) / 2.0), 0, 1);
-      const wTEN = clamp((tenure - 5.0) / 2.5, 0, 1);
-      const wEQ = state.inputs.claims === 'proactive' ? 0.9 : state.inputs.claims === 'balanced' ? 0.7 : 0.5;
+    function computeMetrics() {
+      const hh = householdData;
+      const ev = eventData;
+      if (!hh.length) return null;
 
-      const benchScore = Math.round(
-        (wBR * 0.25 + wRL * 0.20 + wSTI * 0.15 + wTEN * 0.20 + wEQ * 0.20) * 100
-      );
+      const count = hh.length;
+      const totalLines = hh.reduce((s, h) => s + (parseInt(h.lines_count) || 0), 0);
+      const depth = totalLines / (count * 2);
 
-      $('#val-tbn').textContent = fmtHours(tbnHours);
-      $('#val-bscore').textContent = `${benchScore} / 100`;
-      $('#val-rl').textContent = `${rl} / 100 renewals`;
-      $('#val-sti').textContent = `${sti.toFixed(1)} touches / HH`;
-      $('#val-depth').textContent = `${pct(depth)} ≥2 lines`;
-      $('#val-tenure').textContent = `${tenure.toFixed(1)} yrs`;
+      const totalRemarks = ev.filter(e => e.event_type === "remarket").length;
+      const rl = (totalRemarks / count) * 100;
 
-      $('#plan-headline').textContent = `Top‑${topn} outreach ready`;
-      const reasons = [
-        'home-only, 45 days to renewal, claims-free → add auto',
-        'auto-only, escrow on file → add home',
-        'bundled no umbrella, $500k+ exposure → offer $1M',
-        'auto + condo, new teen driver → umbrella + telematics',
-        'home-only, water backup gap → add endorsement',
-        'auto-only, multi-vehicle → add home + key fob benefit',
-        'bundled, roof age 16 → replacement schedule check',
-        'home+auto, high liability → increase limits + PUP',
-        'auto-only, EV → home risk review + equipment breakdown',
-        'home-only, mortgage change → add auto now'
-      ];
-      const list = $('#top-list');
-      list.innerHTML = '';
-      for (let i = 0; i < topn; i++) {
-        const idx = i % reasons.length;
-        const li = document.createElement('li');
-        li.className = 'plan-item';
-        li.innerHTML = `<strong>#${i+1}</strong> — ${reasons[idx]}
-          <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
-            <a class="btn ghost" href="Meeting_Kit_Template.pptx" download>Meeting Kit</a>
-            <a class="btn ghost" href="Monthly_Scorecard_Template.pptx" download>Talking Points</a>
-          </div>`;
-        list.appendChild(li);
+      const totalTouchMin = ev.filter(e => e.event_type === "service_touch")
+        .reduce((s, e) => s + (parseFloat(e.minutes_spent) || 0), 0);
+      const sti = totalTouchMin / count;
+
+      const avgTen = hh.reduce((s, h) => s + (parseFloat(h.tenure_years) || 0), 0) / count;
+
+      const bundledCount = hh.filter(h => (h.bundled_flag === "1" || h.bundled_flag === "true")).length;
+      const brRate = bundledCount / count || 0;
+
+      const bench = Math.round((brRate * 0.5 + (1 - rl/100) * 0.3 + (1 - sti/10) * 0.2) * 100);
+
+      const tbn = rl * 0.5;  // dummy formula
+
+      return { depth, rl, sti, avgTen, bench, tbn };
+    }
+
+    function tryComputeAndRender() {
+      const m = computeMetrics();
+      if (!m) return;
+      $('#snapshot').style.display = "block";
+      $('#plan').style.display = "block";
+
+      $('#val-depth').textContent = `${(m.depth * 100).toFixed(1)}%`;
+      $('#val-rl').textContent = `${m.rl.toFixed(1)} per 100`;
+      $('#val-sti').textContent = `${m.sti.toFixed(1)} mins/HH`;
+      $('#val-bscore').textContent = `${m.bench} / 100`;
+      $('#val-tenure').textContent = `${m.avgTen.toFixed(1)} yrs`;
+      $('#val-tbn').textContent = `${m.tbn.toFixed(1)} hrs`;
+
+      const topList = $('#top-list');
+      topList.innerHTML = "";
+      const topN = Math.min(5, householdData.length);
+      for (let i = 0; i < topN; i++) {
+        const h = householdData[i];
+        const li = document.createElement("li");
+        li.className = "plan-item";
+        li.textContent = `#${i+1} — HH ${h.household_id}: review coverage`;
+        topList.appendChild(li);
       }
     }
 
-    function setConfidence(level = 'estimated') {
-      ['tbn','bscore','rl','sti','depth','tenure'].forEach(id => {
-        const el = document.getElementById(`conf-${id}`);
-        if (el) {
-          el.classList.remove('assumed','estimated','measured');
-          el.classList.add(level);
-          el.textContent = level.charAt(0).toUpperCase() + level.slice(1);
-        }
-      });
-    }
-
-    $$('.scenario .option').forEach(opt => {
-      opt.addEventListener('click', () => {
-        $$('.scenario .option').forEach(o => o.classList.remove('active'));
-        opt.classList.add('active');
-        state.scenario = opt.dataset.scenario;
-        setConfidence('assumed');
-        computeSnapshot();
-      });
-    });
-
-    document.getElementById('btn-apply').addEventListener('click', () => {
-      state.inputs.book = parseInt($('#q-book').value, 10) || 500;
-      state.inputs.csr = parseFloat($('#q-csr').value) || 32;
-      state.inputs.br = parseFloat($('#q-br').value);
-      state.inputs.rl = parseInt($('#q-rl').value, 10) || 19;
-      state.inputs.aht = parseFloat($('#q-aht').value) || 5;
-      state.inputs.rm = parseFloat($('#q-rm').value) || 80;
-      state.inputs.claims = $('#q-claims').value;
-      state.inputs.topn = parseInt($('#q-topn').value, 10) || 12;
-      setConfidence('estimated');
-      computeSnapshot();
-    });
-
-    document.getElementById('btn-reset').addEventListener('click', () => {
-      state.inputs = { book:500, csr:32, br:0.45, rl:19, aht:5, rm:80, claims:'balanced', topn:12 };
-      setConfidence('assumed');
-      $('#q-book').value = 500;
-      $('#q-csr').value = 32;
-      $('#q-br').value = '0.45';
-      $('#q-rl').value = 19;
-      $('#q-aht').value = 5;
-      $('#q-rm').value = 80;
-      $('#q-claims').value = 'balanced';
-      $('#q-topn').value = 12;
-      computeSnapshot();
-    });
-
-    computeSnapshot();
   })();
   </script>
 </body>
